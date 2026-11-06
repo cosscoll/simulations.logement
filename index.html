@@ -1907,8 +1907,23 @@
           '<div class="rounded-lg bg-rose-50 p-2"><span class="block text-[11px] text-rose-800">Taxes + cotisations*</span><strong class="font-mono text-sm">'+euro(c.totalTaxesAndSocialAnnual/12)+'</strong></div>' +
           '<div class="rounded-lg bg-sky-50 p-2"><span class="block text-[11px] text-sky-800">TVA à reverser (moyenne)**</span><strong class="font-mono text-sm">'+euro(c.vat.vatToPay)+'</strong></div>' +
           '<div class="rounded-lg bg-emerald-50 p-2"><span class="block text-[11px] text-emerald-800">Bénéfice après impôts</span><strong class="font-mono text-sm">'+euro(c.afterTax)+'</strong></div></div>' +
-          '<p class="text-[11px] text-slate-500 mt-2">*IS, supplément éventuel à l’IS, CFE, taxe sur salaires et cotisations (si salaire), sans double compter les charges. **TVA hors bénéfice : ce n’est pas une taxe sur le CA HT. Frais de fonctionnement ('+(c.expensesAuto?'selon tes choix':'personnalisés')+') : '+euro(c.services.monthlyTotal)+'/mois. Frais annuels de dépôt des comptes : '+euro(c.services.annualFiling)+'/an pour 2026 ('+(c.createdYear===2026?'premier dépôt après clôture':'obligation annuelle')+').</p>' +
-          '<p class="text-xs font-semibold text-slate-700 mt-1">Résultat prévisionnel conservé : '+euro(c.retainedMonth)+'/mois</p>';
+          '<p class="text-[11px] text-slate-500 mt-2">*IS, éventuelle contribution sur IS, CFE, CVAE, taxe sur les salaires et cotisations sur rémunérations. Les frais de banque/comptabilité sont comptés dans le bénéfice, mais ne sont pas des impôts. **TVA à reverser sur les ventes : flux séparé du bénéfice HT.</p>' +
+          '<div class="rounded-xl border border-slate-200 bg-slate-50 p-3 mt-3 space-y-1">' +
+          '<h4 class="text-xs font-bold text-slate-900 mb-1">Justification du résultat — année 2026</h4>' +
+          infoRow('Chiffre d’affaires annuel HT',c.annualIncome,'Douze mois de CA moyen') +
+          infoRow('Charges d’exploitation renseignées',-c.operatingExpensesAnnual,'Déduites de l’IS') +
+          infoRow('Banque / comptabilité / assurances / local',-c.recurringServicesAnnual,'Coûts du profil choisi, déjà déduits du résultat') +
+          infoRow('Salaires chargés (président + salariés)',-c.yearlyPayroll,'Bruts, cotisations et mutuelles inclus') +
+          infoRow('CFE, CVAE et autres taxes hors IS',-c.otherYearlyTaxes,'Taxes professionnelles réellement calculées sur ce scénario') +
+          infoRow('TVA non récupérable',-c.yearlyNonRecoverableVAT,'TVA des coûts en franchise, uniquement') +
+          infoRow('Dépôt des comptes payé en 2026',-c.services.annualFiling,'0 € si créée en 2026 : premier dépôt après clôture') +
+          infoRow('Frais de constitution de 2026',-c.formationCashCost,'Uniquement si créée en 2026') +
+          infoRow('IS et contribution sur IS',-c.annualTaxNetAfterIS,'Calculés après déduction des charges ci-dessus') +
+          '<div class="flex justify-between font-bold text-sm border-t border-slate-300 mt-2 pt-2"><span>Résultat 2026 APRÈS frais et impôts</span><span class="font-mono">'+euro(c.afterTaxAnnual)+'</span></div>' +
+          (c.nextFilingReserveAnnual>0?'<p class="text-[11px] text-amber-900 mt-1">À réserver pour le PREMIER dépôt des comptes ultérieur : '+euro(c.nextFilingReserveAnnual)+' (non déduit de l’IS 2026, car échéance future).</p>':'') +
+          '<p class="text-[11px] text-slate-600">Après hypothèse de dividendes et mise en réserve du dépôt futur : budget disponible de '+euro(c.cashAvailableAnnual)+'/an (hors trésorerie initiale). La réserve future est distincte du résultat fiscal.</p>' +
+          '</div>' +
+          '<p class="text-xs font-semibold text-slate-700 mt-2">Résultat conservé après dividendes éventuels : '+euro(c.retainedMonth)+'/mois, avant réserve pour dépôt futur.</p>';
       });
       projections.innerHTML = sasProjection.companies.map(function(c) {
         const warnings = c.warnings.map(function(w) {return '<li>' + safeMarkup(w) + '</li>';}).join('');
@@ -1929,7 +1944,8 @@
           infoRow('Assurance de l’activité',c.services.insuranceActivity,'Obligation selon activité. Contrôle des assurances réglementées nécessaire.') +
           infoRow('Assurance du local loué',c.services.premisesInsurance,'Prévue si local locatif déclaré : tarif de référence non légal') +
           infoRow('Assurance véhicules de société',c.services.vehicleInsurance,'Obligation si la société possède / loue un véhicule ; coût estimé') +
-          infoRow('Dépôt des comptes annuels (2026)',c.services.annualFiling/12,'Obligatoire après approbation. Référence 44,14 € par correspondance ; pour une société créée en 2026 : première échéance généralement 2027.') +
+          infoRow('Dépôt annuel des comptes, paiement 2026',c.services.annualFiling/12,'Déduit du résultat fiscal 2026 seulement si paiement prévu cette année. Première échéance après clôture pour création 2026.') +
+          infoRow('Dépôt comptes futur : montant à mettre de côté',c.nextFilingReserveAnnual/12,'Budget de trésorerie prudent, séparé du bénéfice imposable 2026') +
           '<p class="text-[11px] bg-amber-50 text-amber-900 p-2 rounded-lg">Les frais bancaires, du comptable, des logiciels, assurances et locaux sont des coûts de marché estimés ; leur obligation et leur facture réelle dépendent de tes choix et de ton activité. Aucun forfait de 105 € ne s’applique automatiquement à toutes les SASU.</p>' +
           '<h4 class="text-xs uppercase tracking-wide text-rose-700 font-bold mt-3">Rémunérations et charges patronales</h4>' +
           infoRow('Salaire net AVANT PAS',c.salaryNet,'Déduit de l’entreprise via le salaire brut et ses cotisations') +
@@ -1967,7 +1983,7 @@
           infoRow('Dividendes NETS hypothétiques',c.dividendNetMonth,'Non versés mensuellement et non ajoutés au budget') +
           '<div class="rounded-lg bg-emerald-50 border border-emerald-200 p-3 text-emerald-950">' +
           '<div class="flex flex-wrap items-center justify-between gap-2 text-sm font-bold"><span>Résultat conservé dans la société / mois</span><span class="font-mono">' + euro(c.retainedMonth) + '</span></div>' +
-          '<p class="text-[11px] mt-1">Projection simplifiée après 12 mois et distributions hypothétiques, avec trésorerie de départ : <strong>' + euro(c.cashTwelveMonths) + '</strong>. Cette projection n’est pas un solde bancaire prévisionnel fiable.</p></div>' +
+          '<p class="text-[11px] mt-1">Projection simplifiée après 12 mois, distributions hypothétiques et dépôt futur provisionné, avec trésorerie de départ : <strong>' + euro(c.cashTwelveMonths) + '</strong>. Cette projection n’est pas un solde bancaire prévisionnel fiable.</p></div>' +
           '<div class="rounded-lg border border-sky-200 bg-sky-50 p-3 text-sky-950 text-xs"><strong>TVA — flux séparé des charges d’exploitation :</strong> ' +
           vatExplanation + '<p class="mt-1 text-[11px]">' + safeMarkup(c.vat.reason) + '</p></div>' +
           (c.retainedMonth < 0 ? '<p class="p-2 rounded-lg bg-rose-50 text-rose-700 font-semibold text-xs">Déficit projeté : les recettes ne couvrent pas les coûts. Ce scénario exige du financement ou des économies.</p>' : '') +
@@ -2041,7 +2057,8 @@
         add('Taxe sur les salaires',c.taxSalariesAnnual,'€/an','Estimation sous conditions de non-TVA');
         add('Taxe apprentissage',c.taxeApprentissageAnnual,'€/an','0,68 % ou 0,44 % selon région de paie ; exemptions éventuelles');
         add('CVAE + taxe additionnelle CCI',c.cvaeAnnual,'€/an',c.cvaeEstimated?'VA approchée':'VA saisie / sous seuil');
-        add('Dépôt comptes annuels',c.services.annualFiling,'€/an','Obligation annuelle avec tarif de référence');
+        add('Dépôt comptes payé en 2026',c.services.annualFiling,'€/an','Déduit du résultat imposable 2026');
+        add('Provision dépôt comptes futur',c.nextFilingReserveAnnual,'€/an','Réserve de trésorerie non déduite de l’IS 2026');
         add('Banque',c.bankMonthly,'€/mois',c.expensesAuto?'Coût contractuel estimé':'Montant saisi');
         add('Comptabilité',c.accountantMonthly,'€/mois','Prestation facultative, tenue des comptes obligatoire');
         add('Assurance activité + local + véhicules',c.insuranceMonthly,'€/mois','Dépend des risques et obligations professionnelles');
@@ -2054,6 +2071,9 @@
         add('TVA nette due',c.vat.vatToPay,'€/mois','Flux de TVA, hors résultat');
         add('TVA sur achats non récupérable',c.nonRecoverableVATMonthly,'€/mois','Franchise TVA');
         add('Création 2026',c.formationCashCost,'€ ponctuels','Frais légaux de base et annonce');
+        add('Recettes de CA annuel',c.annualIncome,'€/an','Base HT pour rapprochement');
+        add('Charges annuelles avant IS',c.totalActualDeductedAnnual,'€/an','Comprend fonctionnement, paie, taxes annuelles et création');
+        add('Contrôle de rapprochement',c.reconciliationDelta,'€','Doit être égal à 0');
         add('Résultat avant IS',c.preTax,'€/mois','Simulation 12 mois sans déficits antérieurs');
         add('IS',c.taxAnnual,'€/an','Taux réduit si conditions confirmées');
         add('Contribution supplémentaire IS',c.socialISAnnual,'€/an','3,3 % sous conditions de seuil IS');
@@ -2062,7 +2082,8 @@
         add('Bénéfice après IS',c.afterTax,'€/mois','Simulation');
         add('Réserve légale',c.reserveAnnual,'€/an','Selon capital renseigné');
         add('Dividendes nets hypothétiques',c.dividendNetMonth,'€/mois équivalent','Jamais automatiquement versés au foyer');
-        add('Solde conservé',c.retainedMonth,'€/mois','Simulation (pas solde bancaire réel)');
+        add('Solde conservé',c.retainedMonth,'€/mois','Avant provision future des comptes');
+        add('Disponibilité après provision dépôt',c.cashAvailableMonthly,'€/mois','Provisions de dépôt hors résultat fiscal');
         add('Trésorerie projetée',c.cashTwelveMonths,'€ fin 12 mois','Simplifié : hors BFR/amortissements');
         c.warnings.forEach(function(w) {rows.push(['Attention',n,'A vérifier','', '',w]);});
       });
