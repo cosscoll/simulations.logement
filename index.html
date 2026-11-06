@@ -143,7 +143,7 @@
             <span>Total Recettes Net</span>
             <span class="w-2 h-2 rounded-full bg-indigo-400"></span>
           </div>
-          <div class="text-xl sm:text-2xl font-bold font-mono text-white tracking-tight" id="kpi-recettes">2 180 €</div>
+          <div class="text-xl sm:text-2xl font-bold font-mono text-white tracking-tight" id="kpi-recettes">—</div>
           <div class="text-[11px] text-slate-400 mt-1 truncate" id="kpi-recettes-sub">Salaire + Micro + Missions + CAF</div>
         </div>
 
@@ -153,8 +153,8 @@
             <span>Aides Sociales (CAF)</span>
             <span class="w-2 h-2 rounded-full bg-amber-400"></span>
           </div>
-          <div class="text-xl sm:text-2xl font-bold font-mono text-amber-300 tracking-tight" id="kpi-aides">510 €</div>
-          <div class="text-[11px] text-slate-400 mt-1 truncate" id="kpi-aides-sub">Prime : 230€ | APL : 180€ | Mobili : 100€</div>
+          <div class="text-xl sm:text-2xl font-bold font-mono text-amber-300 tracking-tight" id="kpi-aides">—</div>
+          <div class="text-[11px] text-slate-400 mt-1 truncate" id="kpi-aides-sub">Prime, logement, MOBILI-JEUNE : montants saisis</div>
         </div>
 
         <!-- Total Dépenses -->
@@ -163,7 +163,7 @@
             <span>Total Dépenses</span>
             <span class="w-2 h-2 rounded-full bg-rose-400"></span>
           </div>
-          <div class="text-xl sm:text-2xl font-bold font-mono text-rose-300 tracking-tight" id="kpi-depenses">1 390 €</div>
+          <div class="text-xl sm:text-2xl font-bold font-mono text-rose-300 tracking-tight" id="kpi-depenses">—</div>
           <div class="text-[11px] text-slate-400 mt-1 truncate" id="kpi-depenses-sub">Loyer 600€ + Charges 790€</div>
         </div>
 
@@ -174,8 +174,8 @@
             <span>Reste à Vivre (Épargne)</span>
             <span class="px-1.5 py-0.5 rounded text-[10px] bg-emerald-500/20 text-emerald-300 font-mono">NET LIBRE</span>
           </div>
-          <div class="text-2xl sm:text-3xl font-extrabold font-mono text-emerald-400 tracking-tight" id="kpi-reste">790 €</div>
-          <div class="text-[11px] text-emerald-300/80 mt-1 truncate" id="kpi-reste-sub">Capacité d'épargne mensuelle</div>
+          <div class="text-2xl sm:text-3xl font-extrabold font-mono text-emerald-400 tracking-tight" id="kpi-reste">—</div>
+          <div class="text-[11px] text-emerald-300/80 mt-1 truncate" id="kpi-reste-sub">Budget prévisionnel, non garanti</div>
         </div>
 
       </div>
@@ -349,9 +349,9 @@
         <div class="bg-indigo-950/70 p-3.5 rounded-xl border border-indigo-800/80 space-y-1.5">
           <div class="font-bold text-amber-300 flex items-center justify-between">
             <span>1. Micro-entreprise & URSSAF</span>
-            <span id="detail-taux-urssaf" class="font-mono text-[11px] bg-amber-500/20 px-1.5 rounded">19.4%</span>
+            <span id="detail-taux-urssaf" class="font-mono text-[11px] bg-amber-500/20 px-1.5 rounded">—</span>
           </div>
-          <p id="detail-urssaf-calc" class="text-indigo-200 text-[11px]">CA Brut 500 € - URSSAF (97 €) = 403 € net pro.</p>
+          <p id="detail-urssaf-calc" class="text-indigo-200 text-[11px]">Calcul du revenu micro en cours…</p>
           <p id="detail-impot-calc" class="text-indigo-300 text-[11px]">Provision IR au barème saisie manuellement, sauf VFL.</p>
           <div class="pt-1 border-t border-indigo-800/60 text-[11px] text-indigo-300">
             <strong>Revenu compté par la CAF :</strong> <span id="detail-caf-retenu" class="font-mono text-white">330 €</span> (Abattement fiscal appliqué).
@@ -362,10 +362,10 @@
         <div class="bg-indigo-950/70 p-3.5 rounded-xl border border-indigo-800/80 space-y-1.5">
           <div class="font-bold text-emerald-300 flex items-center justify-between">
             <span>2. Prime d'Activité 2026</span>
-            <span id="detail-prime-status" class="font-mono text-[11px] bg-emerald-500/20 px-1.5 rounded">Éligible</span>
+            <span id="detail-prime-status" class="font-mono text-[11px] bg-amber-500/20 px-1.5 rounded">Non certifié</span>
           </div>
           <p id="detail-prime-formule" class="text-indigo-200 text-[11px]">
-            Forfait 638,28 € + 59,85% revenus + Bonification (173 €) - Forfait APL (76,59 €) - Ressources.
+            Le calcul CAF officiel dépend des ressources du trimestre et de la situation du foyer.
           </p>
           <div class="pt-1 border-t border-indigo-800/60 text-[11px] text-indigo-300">
             <strong>Montant saisi et comptabilisé :</strong> <span id="detail-prime-val" class="font-mono text-emerald-300 font-bold">0 € / mois</span>
@@ -376,7 +376,7 @@
         <div class="bg-indigo-950/70 p-3.5 rounded-xl border border-indigo-800/80 space-y-1.5">
           <div class="font-bold text-sky-300 flex items-center justify-between">
             <span>3. APL & Missions Armée</span>
-            <span class="font-mono text-[11px] bg-sky-500/20 px-1.5 rounded">Toulouse Z2</span>
+            <span class="font-mono text-[11px] bg-sky-500/20 px-1.5 rounded">Zone selon logement</span>
           </div>
           <p id="detail-apl-calc" class="text-indigo-200 text-[11px]">Aide au logement : montant saisi depuis la CAF, aucun droit présumé.</p>
           <p class="text-indigo-300 text-[11px]"><strong>Missions Armée / Pompiers (500 €) :</strong> Régime fiscal et prise en compte par la CAF à vérifier selon l'origine des indemnités.</p>
