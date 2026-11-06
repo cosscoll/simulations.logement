@@ -1227,6 +1227,7 @@
         // CFE en 2026 : création 2026 = 0 ; création 2025 = base réduite 50 % ;
         // exonération sur CA N−2 <= 5000 € si connu, sinon montant non vérifiable.
         const cfeBudget = safeAmount(company.cfeAnnual === undefined ? 300 : company.cfeAnnual);
+        const cfeMode = company.cfeMode === 'notice' ? 'notice' : 'provision';
         const cfeReferenceCA = createdYear === 2025 ? priorCa : caMinusTwo;
         let cfeAnnual = 0, cfeReason = '';
         if (createdYear === 2026) {
@@ -1234,9 +1235,11 @@
         } else if (cfeReferenceCA !== null && cfeReferenceCA <= 5000) {
           cfeReason = 'Exonération de CFE : chiffre d’affaires de référence connu ≤ 5 000 € (sous réserve des règles de prorata).';
         } else {
-          cfeAnnual = cfeBudget * (createdYear === 2025 ? 0.5 : 1);
-          cfeReason = (createdYear === 2025 ? 'Première année imposée : réduction de 50 % de la base, ' : '') +
-            'Provision estimative fondée sur le budget CFE indiqué ; montant réel dépend du taux et de la commune (voir avis).';
+          cfeAnnual = cfeMode === 'notice' ? cfeBudget : cfeBudget * (createdYear === 2025 ? 0.5 : 1);
+          cfeReason = cfeMode === 'notice'
+            ? 'Montant repris de l’avis de CFE 2026, déjà net des réductions et taxes annexes ; contrôler le montant saisi.'
+            : (createdYear === 2025 ? 'Première année imposée : réduction de 50 % de la base, ' : '') +
+              'Provision estimative fondée sur le montant annuel de référence ; montant réel dépend de la commune.';
           if (cfeReferenceCA === null) warnings.push('CFE : CA de référence non renseigné, l’exonération ≤ 5 000 € reste à vérifier.');
           if (cfeBudget === 0) warnings.push('CFE potentiellement due mais provision égale à 0 € : compléter avec l’avis d’imposition ou une estimation locale.');
         }
@@ -1347,7 +1350,7 @@
         salaryNet: 0, pasRate: 0,
         vatRegime: 'auto', vatActivity: 'services', vatRate: 20, vatPurchaseHT: 0,
         previousCA: null, previous2CA: null,
-        cfeAnnual: 300, capitalPaid: false, ownersIndividualsPct: 100,
+        cfeAnnual: 300, cfeMode:'provision', capitalPaid: false, ownersIndividualsPct: 100,
         capital: 0, reserveExisting: 0,
         bankMonthly: 0, accountantMonthly: 0, insuranceMonthly: 0,
         otherTaxesAnnual: 0, distributionPct: 0, cashStart: 0
@@ -1454,7 +1457,9 @@
           numberField('Capital détenu par des personnes physiques (%)','ownersIndividualsPct',company.ownersIndividualsPct===undefined ? 100:company.ownersIndividualsPct,5,'Le taux réduit d’IS requiert au moins 75 %.') +
           numberField('Capital social (€)','capital',company.capital,100,'Sert à plafonner la réserve légale à 10 % du capital') +
           numberField('Réserve légale déjà constituée (€)','reserveExisting',company.reserveExisting,50,'Réserve légale existante à déduire du plafond') +
-          numberField('Budget annuel CFE (€)','cfeAnnual',company.cfeAnnual===undefined ? 300:company.cfeAnnual,25,'300 € = provision non officielle ; remplacer par l’avis CFE. Jamais due année de création.') +
+          numberField('Montant CFE annuel (€)','cfeAnnual',company.cfeAnnual===undefined ? 300:company.cfeAnnual,25,'300 € = prévision non officielle ; saisie de l’avis possible avec le choix ci-contre') +
+          selectCompany('Montant CFE : source','cfeMode',company.cfeMode || 'provision',
+            [['provision','Provision année pleine (approximative)'],['notice','Avis fiscal 2026 (montant final)']],'La réduction de 50 % ne sera PAS appliquée une seconde fois à l’avis fiscal.') +
           numberField('Banque professionnelle / mois (€)','bankMonthly',company.bankMonthly,5,'Tarif libre, pas un montant légal fixe') +
           numberField('Comptable / mois (€)','accountantMonthly',company.accountantMonthly,10,'Prestataire facultatif ; tenir une comptabilité reste obligatoire') +
           numberField('Assurances professionnelles / mois (€)','insuranceMonthly',company.insuranceMonthly,10,'Selon activité et obligations éventuelles') +
@@ -1538,6 +1543,7 @@
       else if (field === 'form') item.form = event.target.value === 'sas' ? 'sas' : 'sasu';
       else if (field === 'vatRegime') item.vatRegime = ['auto','franchise','taxable'].includes(event.target.value) ? event.target.value : 'auto';
       else if (field === 'vatActivity') item.vatActivity = event.target.value === 'sales' ? 'sales' : 'services';
+      else if (field === 'cfeMode') item.cfeMode = event.target.value === 'notice' ? 'notice' : 'provision';
       else if (field === 'previousCA' || field === 'previous2CA') item[field] = event.target.value === '' ? null : safeAmount(event.target.value);
       else if (field === 'createdYear') item.createdYear = Math.round(between(event.target.value, 1900, 2026));
       else if (field === 'distributionPct' || field === 'ownersIndividualsPct') item[field] = between(event.target.value, 0, 100);
