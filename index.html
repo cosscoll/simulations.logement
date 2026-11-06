@@ -1581,6 +1581,7 @@
           numberField('Taux PAS salaire (%)','pasRate',company.pasRate,1,'Impôt retenu sur le salaire ; 0 % = hypothèse, à vérifier') +
           numberField('Trésorerie de départ (€)','cashStart',company.cashStart,100,'Non ajoutée au revenu personnel') +
           '</div>' +
+          '<div id="sas-live-' + company.id + '" class="bg-white rounded-xl border border-indigo-200 p-3" aria-live="polite"><span class="text-xs text-slate-500">Calcul des taxes automatique…</span></div>' +
           '<details class="rounded-xl border border-slate-200 bg-white p-3">' +
           '<summary class="font-semibold text-sm text-indigo-800 cursor-pointer">TVA et chiffre d’affaires historique — affiner les calculs</summary>' +
           '<div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 mt-3">' +
@@ -1601,12 +1602,15 @@
           numberField('Capital détenu par des personnes physiques (%)','ownersIndividualsPct',company.ownersIndividualsPct===undefined ? 100:company.ownersIndividualsPct,5,'Le taux réduit d’IS requiert au moins 75 %.') +
           numberField('Capital social (€)','capital',company.capital,100,'Sert à plafonner la réserve légale à 10 % du capital') +
           numberField('Réserve légale déjà constituée (€)','reserveExisting',company.reserveExisting,50,'Réserve légale existante à déduire du plafond') +
-          numberField('Montant CFE annuel (€)','cfeAnnual',company.cfeAnnual===undefined ? 300:company.cfeAnnual,25,'300 € = prévision non officielle ; saisie de l’avis possible avec le choix ci-contre') +
-          selectCompany('Montant CFE : source','cfeMode',company.cfeMode || 'provision',
-            [['provision','Provision année pleine (approximative)'],['notice','Avis fiscal 2026 (montant final)']],'La réduction de 50 % ne sera PAS appliquée une seconde fois à l’avis fiscal.') +
-          numberField('Banque professionnelle / mois (€)','bankMonthly',company.bankMonthly,5,'Tarif libre, pas un montant légal fixe') +
-          numberField('Comptable / mois (€)','accountantMonthly',company.accountantMonthly,10,'Prestataire facultatif ; tenir une comptabilité reste obligatoire') +
-          numberField('Assurances professionnelles / mois (€)','insuranceMonthly',company.insuranceMonthly,10,'Selon activité et obligations éventuelles') +
+          selectCompany('Calcul de la CFE','cfeMode',company.cfeMode || 'auto',
+            [['auto','Automatique à partir du CA (estimation)'],['provision','Budget de CFE saisi'],['notice','Avis fiscal 2026 exact']],'Le montant local exact dépend de la commune et d’une base minimum/immobilière.') +
+          numberField('Taux CFE communal supposé (%)','cfeLocalRate',company.cfeLocalRate===undefined?30:company.cfeLocalRate,1,'30 % par défaut, hypothèse indicative : saisir le taux communal si connu.') +
+          numberField('CFE annuelle de référence/avis (€)','cfeAnnual',company.cfeAnnual===undefined?300:company.cfeAnnual,25,'Utilisée seulement en mode budget/avis. En mode auto : estimation sur base de CA et taux communal supposé.') +
+          selectCompany('Frais de gestion de société','operatingCostMode',company.operatingCostMode || 'auto',
+            [['auto','Automatiques : 105 €/mois de provision'],['manual','Personnalisés : tes montants réels']],'Frais de banque, compta et assurance ne sont pas des taxes obligatoires. Choisir personnalisé pour saisir zéro.') +
+          numberField('Banque professionnelle / mois (€)','bankMonthly',company.bankMonthly===undefined?15:company.bankMonthly,5,'Mode personnalisé uniquement, sinon 15 €/mois prévus') +
+          numberField('Comptable / mois (€)','accountantMonthly',company.accountantMonthly===undefined?75:company.accountantMonthly,10,'Mode personnalisé uniquement, sinon 75 €/mois prévus ; prestataire facultatif') +
+          numberField('Assurances professionnelles / mois (€)','insuranceMonthly',company.insuranceMonthly===undefined?15:company.insuranceMonthly,10,'Mode personnalisé uniquement, sinon 15 €/mois prévus ; selon activité') +
           numberField('Autres taxes annuelles connues (€)','otherTaxesAnnual',company.otherTaxesAnnual,50,'Taxe sectorielle / autres taxes : ne pas doubler la CFE') +
           numberField('Distribution du bénéfice (%)','distributionPct',company.distributionPct,5,'Dividendes théoriques après IS et réserve ; non ajoutés au budget personnel') +
           '</div></details>' +
@@ -1626,6 +1630,18 @@
         '<div class="p-3 bg-sky-50 border border-sky-200 rounded-xl"><span class="text-xs text-sky-800 block">Résultat conservé dans les SAS / mois</span><strong class="text-lg font-mono text-sky-800">' + euro(sasProjection.totalRetained) + '</strong></div>' +
         '<div class="p-3 bg-amber-50 border border-amber-200 rounded-xl"><span class="text-xs text-amber-800 block">Dividendes nets éventuels / mois*</span><strong class="text-lg font-mono text-amber-800">' + euro(sasProjection.totalDividendNet) + '</strong></div></div>' +
         '<p class="text-[11px] text-slate-500 mt-2">*Équivalent mensuel d’une hypothèse de distribution annuelle soumise au PFU de 31,4 % en 2026 : non garanti, non ajouté aux recettes du foyer ni à la prime CAF. Le chiffre d’affaires n’est jamais un revenu personnel.</p>';
+      sasProjection.companies.forEach(function(c){
+        const node=document.getElementById('sas-live-'+c.id);
+        if(!node)return;
+        node.innerHTML='<h4 class="font-bold text-xs text-indigo-900 mb-2">Calcul automatique de la SAS / SASU — projection mensuelle</h4>' +
+          '<div class="grid grid-cols-2 lg:grid-cols-4 gap-2">' +
+          '<div class="rounded-lg bg-slate-50 p-2"><span class="block text-[11px] text-slate-500">CA hors TVA</span><strong class="font-mono text-sm">'+euro(c.ca)+'</strong></div>' +
+          '<div class="rounded-lg bg-rose-50 p-2"><span class="block text-[11px] text-rose-800">Taxes + cotisations*</span><strong class="font-mono text-sm">'+euro(c.totalTaxesAndSocialAnnual/12)+'</strong></div>' +
+          '<div class="rounded-lg bg-sky-50 p-2"><span class="block text-[11px] text-sky-800">TVA à reverser (moyenne)**</span><strong class="font-mono text-sm">'+euro(c.vat.vatToPay)+'</strong></div>' +
+          '<div class="rounded-lg bg-emerald-50 p-2"><span class="block text-[11px] text-emerald-800">Bénéfice après impôts</span><strong class="font-mono text-sm">'+euro(c.afterTax)+'</strong></div></div>' +
+          '<p class="text-[11px] text-slate-500 mt-2">*IS, supplément éventuel à l’IS, CFE, taxe sur salaires et cotisations (si salaire), sans double compter les charges. **TVA hors bénéfice : ce n’est pas une taxe sur le CA HT. Frais de société estimés '+euro(c.bankMonthly+c.accountantMonthly+c.insuranceMonthly)+'/mois ('+(c.expensesAuto?'automatiques, facultatifs':'personnalisés')+').</p>' +
+          '<p class="text-xs font-semibold text-slate-700 mt-1">Résultat prévisionnel conservé : '+euro(c.retainedMonth)+'/mois</p>';
+      });
       projections.innerHTML = sasProjection.companies.map(function(c) {
         const warnings = c.warnings.map(function(w) {return '<li>' + safeMarkup(w) + '</li>';}).join('');
         const vatExplanation = c.vat.taxable
@@ -1645,7 +1661,7 @@
           '<p class="text-[11px] rounded-lg bg-blue-50 text-blue-800 p-2">Coût total du dirigeant pour la société : <strong>' + euro(c.costSalary) +
           ' / mois</strong> (net ' + euro(c.salaryNet) + ' + cotisations ' + euro(c.socialContrib) + '). Net réellement reçu après PAS : <strong>' + euro(c.salaryCash) +
           '</strong>, retenue PAS : ' + euro(c.withheldPAS) + '.</p>' +
-          infoRow('CFE provisionnée',c.cfeAnnual/12,c.cfeReason) +
+          infoRow('CFE automatique / réelle',c.cfeAnnual/12,c.cfeReason) +
           infoRow('Taxe sur salaires estimée',c.taxSalariesAnnual/12,c.taxSalariesAnnual > 0 ? 'TVA non appliquée et rémunération soumise ; barème progressif simplifié' : 'Non applicable dans ce scénario ou en dessous du seuil de recouvrement') +
           infoRow('TVA sur achats non récupérable',c.nonRecoverableVATMonthly,'Appliquée seulement en franchise de TVA') +
           infoRow('Formalités de création 2026',c.formationCashCost/12,c.createdYear===2026 ?
@@ -1659,7 +1675,8 @@
           infoRow('IS estimé',c.taxAnnual/12,c.reduced ?
             '15 % jusqu’à 42 500 € de bénéfice annuel, puis 25 % : conditions du capital et du CA remplies selon tes réponses' :
             'Taux 25 % appliqué ; confirmer capital libéré, détention ≥ 75 % et CA ≤ 10 M€ pour 15 %') +
-          infoRow('Résultat APRÈS IS',c.afterTax,'Peut être négatif ; aucun IS si résultat imposable négatif') +
+          infoRow('Contribution sociale supplémentaire sur IS',c.socialISAnnual/12,'3,3 % de l’IS excédant 763 000 €, sauf exonération PME sous conditions') +
+          infoRow('Résultat APRÈS IS',c.afterTax,'IS et éventuelle contribution supplémentaire déduits ; aucun IS en cas de perte fiscale') +
           infoRow('Dotation à la réserve légale',c.reserveAnnual/12,'5 % des profits jusqu’à 10 % du capital, si capital renseigné') +
           infoRow('Distribution BRUTE théorique',c.dividendGrossMonth,'Hypothèse annuelle selon le pourcentage choisi') +
           infoRow('PFU sur dividendes',c.dividendTaxMonth,'31,4 % en 2026, hypothèse PFU plutôt que barème') +
@@ -1687,12 +1704,14 @@
       else if (field === 'form') item.form = event.target.value === 'sas' ? 'sas' : 'sasu';
       else if (field === 'vatRegime') item.vatRegime = ['auto','franchise','taxable'].includes(event.target.value) ? event.target.value : 'auto';
       else if (field === 'vatActivity') item.vatActivity = event.target.value === 'sales' ? 'sales' : 'services';
-      else if (field === 'cfeMode') item.cfeMode = event.target.value === 'notice' ? 'notice' : 'provision';
+      else if (field === 'cfeMode') item.cfeMode = ['auto','notice','provision'].includes(event.target.value) ? event.target.value : 'auto';
+      else if (field === 'operatingCostMode') item.operatingCostMode = event.target.value === 'manual' ? 'manual' : 'auto';
       else if (field === 'previousCA' || field === 'previous2CA') item[field] = event.target.value === '' ? null : safeAmount(event.target.value);
       else if (field === 'createdYear') item.createdYear = Math.round(between(event.target.value, 1900, 2026));
       else if (field === 'distributionPct' || field === 'ownersIndividualsPct') item[field] = between(event.target.value, 0, 100);
       else if (field === 'pasRate') item.pasRate = between(event.target.value, 0, 45);
       else if (field === 'vatRate') item.vatRate = between(event.target.value, 0, 20);
+      else if (field === 'cfeLocalRate') item.cfeLocalRate = between(event.target.value, 0, 100);
       else item[field] = safeAmount(event.target.value);
       saveCustomBudget();
       updateSimulation();
@@ -1733,6 +1752,9 @@
         add('Création 2026',c.formationCashCost,'€ ponctuels','Frais légaux de base et annonce');
         add('Résultat avant IS',c.preTax,'€/mois','Simulation 12 mois sans déficits antérieurs');
         add('IS',c.taxAnnual,'€/an','Taux réduit si conditions confirmées');
+        add('Contribution supplémentaire IS',c.socialISAnnual,'€/an','3,3 % sous conditions de seuil IS');
+        add('TVA nette annuelle',c.vat.vatYear,'€/an','Mois soumis calculés sur CA moyen constant');
+        add('Frais gestion société',c.bankMonthly+c.accountantMonthly+c.insuranceMonthly,'€/mois',c.expensesAuto?'Provision standard facultative 105 €/mois':'Frais réels saisis');
         add('Bénéfice après IS',c.afterTax,'€/mois','Simulation');
         add('Réserve légale',c.reserveAnnual,'€/an','Selon capital renseigné');
         add('Dividendes nets hypothétiques',c.dividendNetMonth,'€/mois équivalent','Jamais automatiquement versés au foyer');
