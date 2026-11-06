@@ -1272,6 +1272,33 @@
       if(tax <= 2040) return Math.max(0,tax - .75*(2040-tax));
       return tax;
     }
+    function estimateCFE2026(referenceCA, assumedRatePercent) {
+      // Les montants du tableau officiel sont des BASES minimum (pas des taxes).
+      // Sans commune, seule une fourchette peut être donnée.
+      const annual=safeAmount(referenceCA);
+      const brackets=[
+        {max:10000,low:250,high:597},
+        {max:32600,low:250,high:1194},
+        {max:100000,low:250,high:2509},
+        {max:250000,low:250,high:4183},
+        {max:500000,low:250,high:5974},
+        {max:Infinity,low:250,high:7769}
+      ];
+      const band=brackets.find(function(x){return annual<=x.max;});
+      const rate=between(assumedRatePercent===undefined?30:assumedRatePercent,0,100)/100;
+      const amountForBase=function(base) {
+        const tax=base*rate;
+        const additional=base*.0112; // taxe additionnelle CCI 1,12% de la base
+        return (tax+additional)*1.01; // frais de gestion 1 %
+      };
+      return {
+        low:amountForBase(band.low),
+        high:amountForBase(band.high),
+        estimate:amountForBase((band.low+band.high)/2),
+        baseLow:band.low,baseHigh:band.high,rate:rate,
+        note:'Base minimale médiane de la tranche de CA × taux communal supposé '+(rate*100).toFixed(1)+' % + taxe CCI et frais de gestion ; ne remplace pas l’avis.'
+      };
+    }
     function calculateSasProjection() {
       const companies = customBudget.companies.map(function(company) {
         const warnings = [];
@@ -1321,22 +1348,38 @@
 
         // CFE en 2026 : création 2026 = 0 ; création 2025 = base réduite 50 % ;
         // exonération sur CA N−2 <= 5000 € si connu, sinon montant non vérifiable.
-        const cfeBudget = safeAmount(company.cfeAnnual === undefined ? 300 : company.cfeAnnual);
-        const cfeMode = company.cfeMode === 'notice' ? 'notice' : 'provision';
-        const cfeReferenceCA = createdYear === 2025 ? priorCa : caMinusTwo;
-        let cfeAnnual = 0, cfeReason = '';
-        if (createdYear === 2026) {
-          cfeReason = 'Exonération de CFE l’année de création (2026).';
-        } else if (cfeReferenceCA !== null && cfeReferenceCA <= 5000) {
-          cfeReason = 'Exonération de CFE : chiffre d’affaires de référence connu ≤ 5 000 € (sous réserve des règles de prorata).';
-        } else {
-          cfeAnnual = cfeMode === 'notice' ? cfeBudget : cfeBudget * (createdYear === 2025 ? 0.5 : 1);
-          cfeReason = cfeMode === 'notice'
-            ? 'Montant repris de l’avis de CFE 2026, déjà net des réductions et taxes annexes ; contrôler le montant saisi.'
-            : (createdYear === 2025 ? 'Première année imposée : réduction de 50 % de la base, ' : '') +
-              'Provision estimative fondée sur le montant annuel de référence ; montant réel dépend de la commune.';
-          if (cfeReferenceCA === null) warnings.push('CFE : CA de référence non renseigné, l’exonération ≤ 5 000 € reste à vérifier.');
-          if (cfeBudget === 0) warnings.push('CFE potentiellement due mais provision égale à 0 € : compléter avec l’avis d’imposition ou une estimation locale.');
+        const cfeBudget=safeAmount(company.cfeAnnual===undefined?300:company.cfeAnnual);
+        const cfeMode=['auto','notice','provision'].includes(company.cfeMode)?company.cfeMode:'auto';
+        const cfeReferenceCA=createdYear===2025?priorCa:caMinusTwo;
+        const cfeFallbackUsed=cfeReferenceCA===null;
+        const cfeCalc=estimateCFE2026(cfeFallbackUsed?ca*12:cfeReferenceCA,company.cfeLocalRate);
+        let cfeAnnual=0,cfeReason='',cfeRangeLow=0,cfeRangeHigh=0;
+        if(createdYear===2026){
+          cfeReason='Exonération de CFE en 2026, année de création ; déclaration 1447-C-SD à effectuer.';
+        }else if(cfeReferenceCA!==null&&cfeReferenceCA<=5000){
+          cfeReason='CA de référence ≤ 5 000 € : exonération sous réserve de prorata et des règles locales.';
+        }else{
+          const reduction=createdYear===2025?.5:1;
+          if(cfeMode==='notice'){
+            cfeAnnual=cfeBudget;
+            cfeReason='Montant final repris de l’avis CFE 2026, réductions déjà comprises.';
+          }else if(cfeMode==='provision'){
+            cfeAnnual=cfeBudget*reduction;
+            cfeReason='Provision personnelle de '+euro(cfeBudget)+' × '+(reduction*100)+' % de base (ceci n’est pas un avis).';
+          }else{
+            cfeAnnual=cfeCalc.estimate*reduction;
+            cfeRangeLow=cfeCalc.low*reduction;
+            cfeRangeHigh=cfeCalc.high*reduction;
+            cfeReason='Estimation automatique : '+cfeCalc.note+
+              (reduction<1?' Réduction de 50 % de base en première année imposée.':'')+
+              ' Fourchette indicative '+euro(cfeRangeLow)+' à '+euro(cfeRangeHigh)+'.';
+          }
+          if(cfeFallbackUsed)
+            warnings.push('CFE 2026 : CA de référence N−2 / N−1 absent. Estimation utilisant le CA annualisé saisi, mais le montant réel peut être très différent.');
+          if(cfeMode==='auto')
+            warnings.push('CFE calculée sur une base minimale théorique et un taux communal supposé. Le CA seul ne suffit pas pour une CFE exacte ; renseigne l’avis réel.');
+          if(cfeBudget===0&&cfeMode!=='auto')
+            warnings.push('CFE potentiellement due, mais montant personnalisé nul.');
         }
 
         // Frais de constitution EN UNE FOIS, imputés uniquement en année de création.
@@ -1406,6 +1449,7 @@
           insuranceMonthly: insuranceMonthly, expensesAuto:expensesAuto, otherTaxesMonthly: otherTaxesMonthly,
           formationHT: formationHT, formationCashCost: formationCashCost,
           cfeAnnual: cfeAnnual, cfeReason: cfeReason,
+          cfeMode:cfeMode,cfeRangeLow:cfeRangeLow,cfeRangeHigh:cfeRangeHigh,
           vat: vat, taxSalariesAnnual: taxSalariesAnnual, nonRecoverableVATMonthly: vat.nonRecoverableVAT,
           resultBeforeISAnnual: resultBeforeISAnnual, yearlyOperating: yearlyOperating,
           yearlyPayroll: yearlyPayroll, annualExpenses: annualExpenses,
@@ -1450,7 +1494,7 @@
         salaryNet: 0, pasRate: 0,
         vatRegime: 'auto', vatActivity: 'services', vatRate: 20, vatPurchaseHT: 0,
         previousCA: null, previous2CA: null,
-        cfeAnnual: 300, cfeMode:'provision', capitalPaid: false, ownersIndividualsPct: 100,
+        cfeAnnual: 300, cfeMode:'auto', cfeLocalRate:30, capitalPaid: false, ownersIndividualsPct: 100,
         capital: 0, reserveExisting: 0,
         operatingCostMode:'auto', bankMonthly: 15, accountantMonthly: 75, insuranceMonthly: 15,
         otherTaxesAnnual: 0, distributionPct: 0, cashStart: 0
