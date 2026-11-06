@@ -185,6 +185,48 @@
   <!-- Contenu Principal -->
   <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6 flex-grow w-full">
 
+
+    <!-- Sauvegardes de simulations : plusieurs scénarios indépendants -->
+    <section id="scenario-manager" class="bg-white rounded-2xl border border-slate-200/80 p-4 sm:p-5 shadow-sm space-y-4" aria-labelledby="scenarios-heading">
+      <div class="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 id="scenarios-heading" class="text-base font-bold text-slate-900">Mes simulations enregistrées</h2>
+          <p class="text-xs text-slate-500 mt-1">Crée autant de scénarios que nécessaire, retrouve tes SAS, revenus, aides et dépenses, et reprends exactement tes saisies.</p>
+        </div>
+        <div class="flex items-center gap-2 text-xs font-semibold text-slate-600 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
+          <span class="w-2 h-2 rounded-full bg-emerald-500" aria-hidden="true"></span>
+          <span id="scenario-count">0 simulation</span>
+        </div>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <label class="text-xs font-semibold text-slate-700">
+          Reprendre une simulation
+          <select id="scenario-select" aria-label="Choisir une simulation enregistrée" class="mt-1.5 w-full p-2.5 rounded-xl border border-slate-200 bg-slate-50 font-semibold text-sm focus:ring-2 focus:ring-indigo-500"></select>
+        </label>
+        <label class="text-xs font-semibold text-slate-700">
+          Nom de la simulation active
+          <input id="scenario-name" type="text" maxlength="80" placeholder="Ex. : SASU sans salaire, projet 2027" class="mt-1.5 w-full p-2.5 rounded-xl border border-slate-200 bg-slate-50 font-semibold text-sm focus:ring-2 focus:ring-indigo-500" />
+        </label>
+      </div>
+      <div class="flex flex-wrap gap-2">
+        <button type="button" onclick="newSavedSimulation()" class="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-semibold text-xs">+ Nouvelle simulation</button>
+        <button type="button" onclick="saveActiveSimulation(true)" class="px-3.5 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-xl font-semibold text-xs">Enregistrer</button>
+        <button type="button" onclick="duplicateSavedSimulation()" class="px-3.5 py-2 bg-slate-50 hover:bg-slate-100 text-slate-800 border border-slate-200 rounded-xl font-semibold text-xs">Dupliquer</button>
+        <button type="button" onclick="deleteSavedSimulation()" class="px-3.5 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl font-semibold text-xs">Supprimer</button>
+      </div>
+      <div class="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3">
+        <p id="scenario-status" role="status" aria-live="polite" class="text-xs text-slate-600">Initialisation des sauvegardes…</p>
+        <div class="flex flex-wrap gap-2">
+          <button type="button" onclick="exportSavedSimulations()" class="px-3 py-2 bg-indigo-50 text-indigo-800 border border-indigo-200 rounded-lg text-xs font-semibold hover:bg-indigo-100">Exporter les sauvegardes (.json)</button>
+          <button type="button" onclick="document.getElementById('scenario-import').click()" class="px-3 py-2 bg-white text-slate-800 border border-slate-200 rounded-lg text-xs font-semibold hover:bg-slate-50">Importer des sauvegardes</button>
+          <input type="file" id="scenario-import" class="hidden" accept=".json,application/json" aria-label="Importer des simulations JSON" />
+        </div>
+      </div>
+      <p class="text-[11px] text-amber-900 bg-amber-50 border border-amber-100 rounded-xl p-2.5">
+        <strong>Stockage local :</strong> les simulations sont sauvegardées dans ce navigateur, sur cet appareil. Elles ne sont ni publiées sur GitHub ni synchronisées entre tes appareils. Pour les conserver si tu effaces les données du navigateur ou changes d'ordinateur, exporte régulièrement un fichier JSON.
+      </p>
+    </section>
+
     <!-- BARRE DES SÉLECTEURS DE VIE (Toggles Globaux) -->
     <div class="bg-white rounded-2xl border border-slate-200/80 p-4 sm:p-5 shadow-sm">
       <div class="flex items-center justify-between mb-4 border-b border-slate-100 pb-3">
@@ -901,6 +943,7 @@
       // 5. RENDU DU DIAGRAMME SANKEY (PLOTLY)
       // ==========================================
       renderCustomSummary(sasProjection, additionalExpensesTotal);
+      scheduleScenarioAutosave();
       renderSankeyChart();
     }
 
@@ -1630,6 +1673,337 @@
       updateSimulation();
     });
 
+
+
+    // Bibliothèque de simulations : chaque scénario capture TOUS les contrôles
+    // de revenus, paramètres CAF, dépenses, sociétés et sous-paramètres.
+    // Stockage local uniquement : aucune donnée n'est transmise au dépôt GitHub.
+    const SCENARIOS_KEY = 'simulations-logement-scenarios-v1';
+    const SCENARIO_FIELDS = [
+      'sel-statut-pro','sel-mode-couple','sel-micro-type','sel-acre','sel-impot',
+      'input-salaire','input-ca-brut','input-missions','input-loyer',
+      'input-courses-toi','input-factures-toi','input-sorties-toi','input-moto','input-abos-toi',
+      'input-revenu-copine','input-courses-copine','input-factures-copine','input-sorties-copine'
+    ];
+    const SCENARIO_DEFAULTS = {
+      'sel-statut-pro':'alternant', 'sel-mode-couple':'solo', 'sel-micro-type':'bnc',
+      'sel-acre':'acre_2026', 'sel-impot':'bareme',
+      'input-salaire':'1170', 'input-ca-brut':'500', 'input-missions':'500',
+      'input-loyer':'600', 'input-courses-toi':'220',
+      'input-factures-toi':'200', 'input-sorties-toi':'200',
+      'input-moto':'140', 'input-abos-toi':'30',
+      'input-revenu-copine':'0', 'input-courses-copine':'80',
+      'input-factures-copine':'30', 'input-sorties-copine':'50'
+    };
+    let scenarioReady = false;
+    let scenarioLoading = false;
+    let scenarioSaveTimeout = null;
+    let scenarioStorageOK = true;
+    let scenarioStore = {version:1, activeId:null, simulations:[]};
+
+    function newSimulationId() {
+      if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
+      return 'sim-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2,11);
+    }
+    function cloneSimulationData(data) {
+      return JSON.parse(JSON.stringify(data));
+    }
+    function readSimulationSnapshot() {
+      const controls = {};
+      SCENARIO_FIELDS.forEach(function(id) {
+        const el = document.getElementById(id);
+        if (el) controls[id] = String(el.value);
+      });
+      return {
+        controls: controls,
+        expenses: cloneSimulationData(customBudget.expenses),
+        companies: cloneSimulationData(customBudget.companies)
+      };
+    }
+    function cleanSimulationSnapshot(data) {
+      const controls = {};
+      const input = data && typeof data === 'object' && data.controls && typeof data.controls === 'object' ? data.controls : {};
+      SCENARIO_FIELDS.forEach(function(id) {
+        controls[id] = typeof input[id] === 'string' || typeof input[id] === 'number'
+          ? String(input[id]).slice(0,60) : SCENARIO_DEFAULTS[id];
+      });
+      const expenses = Array.isArray(data && data.expenses) ? data.expenses.slice(0,100).filter(function(x) {return x && typeof x === 'object' && !Array.isArray(x);}) : [];
+      const companies = Array.isArray(data && data.companies) ? data.companies.slice(0,25).filter(function(x) {return x && typeof x === 'object' && !Array.isArray(x);}) : [];
+      return {controls:controls, expenses:cloneSimulationData(expenses), companies:cloneSimulationData(companies)};
+    }
+    function defaultSimulationSnapshot() {
+      return cleanSimulationSnapshot({controls:SCENARIO_DEFAULTS, expenses:[], companies:[]});
+    }
+    function getActiveSavedSimulation() {
+      return scenarioStore.simulations.find(function(item){return item.id === scenarioStore.activeId;}) || null;
+    }
+    function formatScenarioDate(iso) {
+      const date = new Date(iso);
+      return Number.isNaN(date.getTime()) ? '' : date.toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+    }
+    function showScenarioStatus(message, error) {
+      const node = document.getElementById('scenario-status');
+      if (!node) return;
+      node.textContent = message;
+      node.className = error ? 'text-xs font-semibold text-rose-700' : 'text-xs text-slate-600';
+    }
+    function persistScenarioStore() {
+      try {
+        localStorage.setItem(SCENARIOS_KEY, JSON.stringify(scenarioStore));
+        scenarioStorageOK = true;
+        return true;
+      } catch (error) {
+        scenarioStorageOK = false;
+        showScenarioStatus('Sauvegarde impossible sur cet appareil (stockage indisponible ou saturé). Exporte un fichier JSON pour conserver tes données.',true);
+        return false;
+      }
+    }
+    function renderScenarioMenu() {
+      const list = document.getElementById('scenario-select');
+      const title = document.getElementById('scenario-name');
+      const count = document.getElementById('scenario-count');
+      if (!list || !title || !count) return;
+      const active = getActiveSavedSimulation();
+      list.innerHTML = scenarioStore.simulations.map(function(item) {
+        const date = formatScenarioDate(item.updatedAt);
+        return '<option value="' + safeMarkup(item.id) + '"' + (item.id === scenarioStore.activeId ? ' selected' : '') +
+          '>' + safeMarkup(item.name) + (date ? ' · ' + date : '') + '</option>';
+      }).join('');
+      list.value = scenarioStore.activeId || '';
+      title.value = active ? active.name : '';
+      count.textContent = scenarioStore.simulations.length + (scenarioStore.simulations.length > 1 ? ' simulations' : ' simulation');
+    }
+    function applySimulationSnapshot(snapshot) {
+      scenarioLoading = true;
+      try {
+        const clean = cleanSimulationSnapshot(snapshot);
+        SCENARIO_FIELDS.forEach(function(id) {
+          const el = document.getElementById(id);
+          if (el) el.value = clean.controls[id];
+        });
+        customBudget.expenses = clean.expenses;
+        customBudget.companies = clean.companies;
+        const allIds = clean.expenses.concat(clean.companies).map(function(x) {return Number(x.id)||0;});
+        customNextId = Math.max(customNextId,1+Math.max(0,...allIds));
+        saveCustomBudget(); // Maintient la compatibilité avec le stockage historique.
+        renderCustomForms();
+        updateSimulation();
+      } finally {
+        scenarioLoading = false;
+      }
+    }
+    function flushScenarioAutosave() {
+      if (scenarioSaveTimeout !== null) {
+        clearTimeout(scenarioSaveTimeout);
+        scenarioSaveTimeout = null;
+      }
+      saveActiveSimulation(false);
+    }
+    function saveActiveSimulation(manual) {
+      if (!scenarioReady || scenarioLoading) return false;
+      if (scenarioSaveTimeout !== null) {
+        clearTimeout(scenarioSaveTimeout);
+        scenarioSaveTimeout = null;
+      }
+      const active = getActiveSavedSimulation();
+      if (!active) return false;
+      const field = document.getElementById('scenario-name');
+      const enteredName = field ? field.value.trim().slice(0,80) : '';
+      if (enteredName) active.name = enteredName;
+      active.snapshot = readSimulationSnapshot();
+      active.updatedAt = new Date().toISOString();
+      const saved = persistScenarioStore();
+      renderScenarioMenu();
+      if (saved) showScenarioStatus((manual ? 'Simulation enregistrée' : 'Sauvegarde automatique') + ' · ' + formatScenarioDate(active.updatedAt));
+      return saved;
+    }
+    function scheduleScenarioAutosave() {
+      if (!scenarioReady || scenarioLoading) return;
+      if (scenarioSaveTimeout !== null) clearTimeout(scenarioSaveTimeout);
+      scenarioSaveTimeout = setTimeout(function() {
+        scenarioSaveTimeout = null;
+        saveActiveSimulation(false);
+      },250);
+    }
+    function switchSavedSimulation(id) {
+      if (!scenarioReady || id === scenarioStore.activeId) return;
+      const chosen = scenarioStore.simulations.find(function(item){return item.id === id;});
+      if (!chosen) return;
+      flushScenarioAutosave();
+      scenarioStore.activeId = chosen.id;
+      applySimulationSnapshot(chosen.snapshot);
+      const saved = persistScenarioStore();
+      renderScenarioMenu();
+      if (saved) showScenarioStatus('Simulation reprise : ' + chosen.name + ' · Dernière modification : ' + formatScenarioDate(chosen.updatedAt));
+    }
+    function newSavedSimulation() {
+      if (!scenarioReady) return;
+      if (scenarioStore.simulations.length >= 50) {
+        showScenarioStatus('Limite de 50 simulations dans ce navigateur. Exporte ou supprime une simulation avant de continuer.',true);
+        return;
+      }
+      flushScenarioAutosave();
+      const stamp = new Date().toISOString();
+      const item = {
+        id:newSimulationId(),name:'Nouvelle simulation ' + (scenarioStore.simulations.length+1),
+        createdAt:stamp,updatedAt:stamp,snapshot:defaultSimulationSnapshot()
+      };
+      scenarioStore.simulations.unshift(item);
+      scenarioStore.activeId = item.id;
+      applySimulationSnapshot(item.snapshot);
+      const saved = persistScenarioStore();
+      renderScenarioMenu();
+      if (saved) showScenarioStatus('Nouvelle simulation créée et enregistrée. Les autres sont conservées.');
+    }
+    function duplicateSavedSimulation() {
+      if (!scenarioReady) return;
+      if (scenarioStore.simulations.length >= 50) {
+        showScenarioStatus('Limite de 50 simulations : exporte ou supprime une simulation.',true);
+        return;
+      }
+      flushScenarioAutosave();
+      const original = getActiveSavedSimulation();
+      if (!original) return;
+      const stamp = new Date().toISOString();
+      const copy = {
+        id:newSimulationId(),name:('Copie de ' + original.name).slice(0,80),
+        createdAt:stamp,updatedAt:stamp,snapshot:cloneSimulationData(original.snapshot)
+      };
+      scenarioStore.simulations.unshift(copy);
+      scenarioStore.activeId = copy.id;
+      applySimulationSnapshot(copy.snapshot);
+      const saved = persistScenarioStore();
+      renderScenarioMenu();
+      if (saved) showScenarioStatus('Copie créée : tu peux modifier cette simulation sans changer l’original.');
+    }
+    function deleteSavedSimulation() {
+      if (!scenarioReady) return;
+      const active = getActiveSavedSimulation();
+      if (!active) return;
+      if (!window.confirm('Supprimer définitivement la simulation « ' + active.name + ' » de ce navigateur ?')) return;
+      // Ne pas flusher : supprimer doit réellement supprimer, sans recréer la simulation.
+      if (scenarioSaveTimeout !== null) {
+        clearTimeout(scenarioSaveTimeout);
+        scenarioSaveTimeout = null;
+      }
+      scenarioStore.simulations = scenarioStore.simulations.filter(function(item){return item.id !== active.id;});
+      if (scenarioStore.simulations.length === 0) {
+        const stamp = new Date().toISOString();
+        scenarioStore.simulations.push({id:newSimulationId(),name:'Ma simulation',createdAt:stamp,updatedAt:stamp,snapshot:defaultSimulationSnapshot()});
+      }
+      scenarioStore.activeId = scenarioStore.simulations[0].id;
+      applySimulationSnapshot(scenarioStore.simulations[0].snapshot);
+      const saved = persistScenarioStore();
+      renderScenarioMenu();
+      if (saved) showScenarioStatus('Simulation supprimée. Le scénario restant est ouvert.');
+    }
+    function exportSavedSimulations() {
+      if (!scenarioReady) return;
+      flushScenarioAutosave();
+      const payload = JSON.stringify({format:'simulations-logement',version:1,exportedAt:new Date().toISOString(),
+        activeId:scenarioStore.activeId,simulations:scenarioStore.simulations},null,2);
+      const url = URL.createObjectURL(new Blob([payload],{type:'application/json;charset=utf-8'}));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'mes-simulations-logement-' + new Date().toISOString().slice(0,10) + '.json';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(function(){URL.revokeObjectURL(url);},0);
+      showScenarioStatus('Sauvegarde JSON exportée. Conserve ce fichier pour restaurer tes simulations sur un autre appareil.');
+    }
+    function mergeImportedSimulations(raw) {
+      if (!raw || raw.format !== 'simulations-logement' || raw.version !== 1 || !Array.isArray(raw.simulations)) {
+        throw new Error('Format invalide : importe un fichier JSON exporté depuis ce simulateur.');
+      }
+      if (raw.simulations.length > 50) throw new Error('Le fichier contient plus de 50 simulations.');
+      const available = Math.max(0,50-scenarioStore.simulations.length);
+      const imported = raw.simulations.slice(0,available).map(function(item) {
+        if (!item || typeof item !== 'object' || !item.snapshot) return null;
+        const stamp = new Date().toISOString();
+        return {
+          id:newSimulationId(),
+          name:String(item.name || 'Simulation importée').slice(0,80),
+          createdAt:stamp,updatedAt:stamp,
+          snapshot:cleanSimulationSnapshot(item.snapshot)
+        };
+      }).filter(Boolean);
+      if (!imported.length) throw new Error('Aucune simulation valide à importer, ou limite de 50 atteinte.');
+      flushScenarioAutosave();
+      scenarioStore.simulations.unshift(...imported);
+      scenarioStore.activeId = imported[0].id;
+      applySimulationSnapshot(imported[0].snapshot);
+      const saved = persistScenarioStore();
+      renderScenarioMenu();
+      if (saved) showScenarioStatus(imported.length+' simulation(s) importée(s). Les anciennes simulations ont été conservées.');
+      return imported.length;
+    }
+    function importSavedSimulationFile(file) {
+      if (!file) return;
+      if (file.size > 2*1024*1024) {
+        showScenarioStatus('Fichier trop volumineux : limite de 2 Mo pour l’import.',true);
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = function() {
+        try {
+          mergeImportedSimulations(JSON.parse(String(reader.result)));
+        } catch(error) {
+          showScenarioStatus('Échec de l’import : '+error.message,true);
+        }
+      };
+      reader.onerror = function() {showScenarioStatus('Impossible de lire ce fichier JSON.',true);};
+      reader.readAsText(file,'UTF-8');
+    }
+    function initializeScenarioManager() {
+      if (scenarioReady) return;
+      let loaded=null;
+      try {
+        loaded=JSON.parse(localStorage.getItem(SCENARIOS_KEY)||'null');
+      } catch(error) {}
+      if (loaded && loaded.version===1 && Array.isArray(loaded.simulations)) {
+        scenarioStore.simulations=loaded.simulations.slice(0,50).filter(function(item){
+          return item && typeof item.id==='string' && item.id.length<=128 && item.snapshot && typeof item.snapshot==='object';
+        }).map(function(item) {
+          return {
+            id:item.id,name:String(item.name||'Simulation').slice(0,80),
+            createdAt:item.createdAt||new Date().toISOString(),
+            updatedAt:item.updatedAt||new Date().toISOString(),
+            snapshot:cleanSimulationSnapshot(item.snapshot)
+          };
+        });
+        scenarioStore.activeId=loaded.activeId;
+      }
+      if (scenarioStore.simulations.length===0) {
+        // Migration : ne pas perdre les données SAS/dépenses stockées par l'ancienne version.
+        const stamp=new Date().toISOString();
+        scenarioStore.simulations.push({
+          id:newSimulationId(),name:'Ma simulation',createdAt:stamp,updatedAt:stamp,
+          snapshot:readSimulationSnapshot()
+        });
+        scenarioStore.activeId=scenarioStore.simulations[0].id;
+      }
+      if (!scenarioStore.simulations.some(function(x){return x.id===scenarioStore.activeId;})) {
+        scenarioStore.activeId=scenarioStore.simulations[0].id;
+      }
+      const active=getActiveSavedSimulation();
+      applySimulationSnapshot(active.snapshot);
+      scenarioReady=true;
+      persistScenarioStore();
+      renderScenarioMenu();
+      if (scenarioStorageOK) showScenarioStatus('Simulation reprise automatiquement · Dernière sauvegarde : ' + formatScenarioDate(active.updatedAt));
+      const select=document.getElementById('scenario-select');
+      const name=document.getElementById('scenario-name');
+      const imported=document.getElementById('scenario-import');
+      select.addEventListener('change',function(){switchSavedSimulation(select.value);});
+      name.addEventListener('input',scheduleScenarioAutosave);
+      imported.addEventListener('change',function(){
+        if (imported.files && imported.files[0]) importSavedSimulationFile(imported.files[0]);
+        imported.value='';
+      });
+      window.addEventListener('pagehide',function(){flushScenarioAutosave();});
+    }
+    window.addEventListener('DOMContentLoaded',initializeScenarioManager);
 
     // Copie du résumé vers le presse-papier
     function copySummary() {
