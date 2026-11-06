@@ -559,9 +559,17 @@
       <div id="sas-companies-summary" aria-live="polite"></div>
       <div id="sas-company-projections" class="grid grid-cols-1 md:grid-cols-2 gap-3"></div>
       <div class="rounded-xl bg-amber-50 border border-amber-200 text-amber-950 p-3 text-xs leading-relaxed space-y-2">
-        <p><strong>Simulation indicative, non-comptable :</strong> les cotisations de rémunération sont approchées par un coefficient modifiable, et l'IS est projeté à partir d'un résultat annuel constant (hors TVA, amortissements, déficits reportables, trésorerie réelle, IR sur salaire et autres régularisations). Les dividendes sont une projection, <strong>jamais ajoutée automatiquement au budget personnel</strong>.</p>
-        <p><strong>Attention CAF :</strong> la rémunération SAS est ajoutée aux ressources de la formule simplifiée existante, mais les APL et la prime d'activité affichées ne constituent ni une notification de droits ni un calcul officiel. Elles sont à confirmer sur les simulateurs CAF.</p>
-        <p>Références : <a class="underline" href="https://entreprendre.service-public.gouv.fr/vosdroits/F37366" target="_blank" rel="noopener noreferrer">statut du président de SAS</a>, <a class="underline" href="https://entreprendre.service-public.gouv.fr/vosdroits/F23575" target="_blank" rel="noopener noreferrer">taux de l'IS</a>, <a class="underline" href="https://www.impots.gouv.fr/particulier/questions/jai-des-valeurs-mobilieres-comment-sont-elles-imposees" target="_blank" rel="noopener noreferrer">fiscalité des dividendes</a>.</p>
+        <p><strong>Ce qui est automatique :</strong> cotisations sociales estimées si salaire non nul, IS sur le bénéfice, CFE selon création et CA historique, frais de constitution ponctuels, taxe sur les salaires sous hypothèse de franchise TVA, TVA (collectée/récupérable), réserve légale et fiscalité forfaitaire des dividendes.</p>
+        <p><strong>Ce qui exige une valeur réelle :</strong> les cotisations de paie exactes (selon l'URSSAF), la CFE votée par ta commune, le régime TVA effectivement applicable, les dépenses de banque/comptabilité, les salaires de salariés éventuels et la CVAE si CA > 500 000 €. Un chiffre provisoire est toujours étiqueté <strong>estimation</strong>. Le salaire net après prélèvement à la source est seul ajouté au budget personnel.</p>
+        <p><strong>Périmètre :</strong> sociétés à l'IS en France métropolitaine, exercice complet 2026 de 12 mois à CA constant, sans report déficitaire ni amortissements détaillés. Les aides CAF du site et l'impôt sur le revenu hors PAS du président restent des simulations simplifiées, à confirmer.</p>
+        <p class="flex flex-wrap gap-x-3 gap-y-1"><a class="underline" href="https://mon-entreprise.urssaf.fr/simulateurs/sasu" target="_blank" rel="noopener noreferrer">URSSAF : salaire SASU</a>
+          <a class="underline" href="https://entreprendre.service-public.gouv.fr/vosdroits/F23575" target="_blank" rel="noopener noreferrer">IS</a>
+          <a class="underline" href="https://entreprendre.service-public.gouv.fr/vosdroits/F23547" target="_blank" rel="noopener noreferrer">CFE</a>
+          <a class="underline" href="https://entreprendre.service-public.gouv.fr/vosdroits/F21746" target="_blank" rel="noopener noreferrer">TVA</a>
+          <a class="underline" href="https://entreprendre.service-public.gouv.fr/vosdroits/F22576" target="_blank" rel="noopener noreferrer">Taxe sur les salaires</a>
+          <a class="underline" href="https://entreprendre.service-public.gouv.fr/vosdroits/F37688" target="_blank" rel="noopener noreferrer">Frais de création</a>
+          <a class="underline" href="https://www.impots.gouv.fr/particulier/questions/jai-des-valeurs-mobilieres-comment-sont-elles-imposees" target="_blank" rel="noopener noreferrer">Dividendes</a>
+        </p>
       </div>
       <div class="flex flex-wrap gap-2">
         <button type="button" onclick="exportCustomCSV()" class="rounded-lg border border-indigo-200 bg-indigo-50 text-indigo-800 px-3 py-2 text-xs font-semibold hover:bg-indigo-100">Exporter mon scénario (CSV)</button>
@@ -1361,6 +1369,28 @@
         (help ? '<span class="block text-[10px] font-normal text-slate-500">' + safeMarkup(help) + '</span>' : '') +
         '</label>';
     }
+
+    function selectCompany(label, field, value, choices, description) {
+      return '<label class="space-y-1 block text-xs font-semibold text-slate-700">' +
+        '<span>' + safeMarkup(label) + '</span><select data-field="' + field + '" class="block w-full bg-white border border-slate-200 rounded-xl p-2.5 text-sm">' +
+        choices.map(function(c) {
+          return '<option value="' + safeMarkup(c[0]) + '"' + (String(value) === String(c[0]) ? ' selected' : '') + '>' + safeMarkup(c[1]) + '</option>';
+        }).join('') + '</select>' +
+        (description ? '<span class="block text-[10px] font-normal text-slate-500">' + safeMarkup(description) + '</span>' : '') + '</label>';
+    }
+    function optionalNumber(label, field, value, explanation) {
+      return '<label class="space-y-1 block text-xs font-semibold text-slate-700"><span>' + safeMarkup(label) + '</span>' +
+        '<input type="number" data-field="' + field + '" min="0" step="1" placeholder="Inconnu" value="' +
+        (value === null || value === undefined ? '' : safeAmount(value)) +
+        '" class="w-full p-2.5 bg-white border border-slate-200 rounded-xl text-sm font-mono" />' +
+        '<span class="block text-[10px] text-slate-500 font-normal">' + safeMarkup(explanation) + '</span></label>';
+    }
+    function infoRow(title, value, desc) {
+      return '<div class="grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 py-1.5 border-b border-slate-200/60 text-xs">' +
+        '<div class="text-slate-700">' + safeMarkup(title) +
+        (desc ? '<span class="block text-[11px] text-slate-500">' + safeMarkup(desc) + '</span>' : '') +
+        '</div><strong class="font-mono font-semibold text-right text-slate-900 whitespace-nowrap">' + euro(value) + '</strong></div>';
+    }
     function renderCustomForms() {
       const expenseList = document.getElementById('custom-expenses-list');
       const companyList = document.getElementById('sas-companies-list');
@@ -1379,27 +1409,60 @@
       }).join('') : '<p class="text-xs text-slate-500 italic py-2">Aucune dépense supplémentaire pour le moment.</p>';
 
       companyList.innerHTML = customBudget.companies.length ? customBudget.companies.map(function(company) {
-        return '<article data-company-id="' + company.id + '" class="rounded-2xl border border-indigo-100 bg-indigo-50/30 p-4 space-y-4">' +
-          '<div class="flex flex-wrap items-end justify-between gap-2">' +
-          '<label class="text-xs font-semibold text-slate-700 flex-1">Nom de la SAS / SASU' +
+        const form=company.form === 'sas'?'sas':'sasu';
+        const created = Math.round(between(company.createdYear === undefined ? 2026 : company.createdYear,1900,2026));
+        const companyYears = [['2026','Créée en 2026'],['2025','Créée en 2025'],['2024','Créée en 2024'],
+          ['2023','Créée en 2023'],['2022','Créée en 2022'],['2021','Créée en 2021'],
+          ['2020','Créée en 2020'],['2019','Créée en 2019 ou avant']];
+        const yearOptions = companyYears.map(function(it) {
+          return '<option value="' + it[0] + '"' + (String(created)===it[0] ? ' selected' : '') + '>' + it[1] + '</option>';
+        }).join('');
+        return '<article data-company-id="' + company.id + '" class="rounded-2xl border border-indigo-100 bg-indigo-50/20 p-4 space-y-4">' +
+          '<div class="flex flex-wrap gap-3 items-end">' +
+          '<label class="text-xs font-semibold text-slate-700 flex-1 min-w-48">Nom de la société' +
           '<input data-field="name" maxlength="100" value="' + safeMarkup(company.name || '') + '" class="block w-full mt-1 p-2.5 rounded-xl bg-white border border-slate-200 text-sm font-semibold"></label>' +
-          '<button type="button" data-remove-company="' + company.id + '" class="px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-lg text-xs font-semibold">Supprimer la société</button></div>' +
+          '<button type="button" data-remove-company="' + company.id + '" class="px-3 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-xl text-xs font-semibold">Supprimer</button></div>' +
           '<div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">' +
-          numberField("Chiffre d'affaires HT / mois", 'ca', company.ca, 100, 'Facturé HT par la société') +
-          numberField("Charges d'exploitation HT / mois", 'charges', company.charges, 50, 'Achats, outils, locaux, comptable… hors rémunération et CFE') +
-          numberField("Salaire dirigeant NET / mois", 'salaryNet', company.salaryNet, 50, 'Net avant impôt personnel, versé au dirigeant') +
-          numberField("Coût société / net (coefficient)", 'salaryFactor', company.salaryFactor, 0.05, 'Approximation modifiable : 1,80 par défaut, zéro coût si salaire nul') +
-          numberField("CFE / autres impôts annuels (€)", 'cfeAnnual', company.cfeAnnual, 50, 'Provision annuelle indicative, 0 € par défaut') +
-          numberField("Trésorerie de départ (€)", 'cashStart', company.cashStart, 100, 'Projection simple à 12 mois') +
-          '<label class="space-y-1 block text-xs font-semibold text-slate-700"><span>Distribution théorique du bénéfice</span>' +
-          '<input type="number" data-field="distributionPct" min="0" max="100" step="5" value="' + between(company.distributionPct, 0, 100) + '" class="w-full p-2.5 rounded-xl border border-slate-200 bg-slate-50 font-mono text-sm">' +
-          '<span class="block text-[10px] font-normal text-slate-500">Pourcentage de profit après IS (0 à 100 %). Pas un salaire.</span></label>' +
-          '<label class="space-y-1 block text-xs font-semibold text-slate-700"><span>IS de la société</span><select data-field="reducedIS" class="w-full p-2.5 rounded-xl border border-slate-200 bg-slate-50 text-sm">' +
-          '<option value="false"' + (!company.reducedIS ? ' selected' : '') + '>25 % (taux normal)</option>' +
-          '<option value="true"' + (company.reducedIS ? ' selected' : '') + '>15 % jusqu’à 42 500 € sous conditions, puis 25 %</option></select>' +
-          '<span class="block text-[10px] font-normal text-slate-500">Choisir le réduit uniquement si les conditions légales sont remplies.</span></label></div>' +
+          selectCompany('Structure','form',form,[['sasu','SASU (1 associé)'],['sas','SAS (plusieurs associés)']],'Détermine les frais de publication légale en 2026.') +
+          '<label class="space-y-1 block text-xs font-semibold text-slate-700"><span>Année de création</span>' +
+          '<select data-field="createdYear" class="block w-full bg-white border border-slate-200 rounded-xl p-2.5 text-sm">' + yearOptions + '</select>' +
+          '<span class="block text-[10px] text-slate-500 font-normal">Détermine les formalités et l’exonération de CFE.</span></label>' +
+          numberField('CA HT moyen par mois','ca',company.ca,100,'Recettes hors TVA, supposées constantes sur 12 mois') +
+          numberField('Charges professionnelles HT / mois','charges',company.charges,50,'Achats, logiciels, déplacements, loyer… sans compter les coûts séparés ci-dessous') +
+          numberField('Salaire net AVANT impôt / mois','salaryNet',company.salaryNet,50,'0 € = aucune cotisation sociale du président sur salaire') +
+          numberField('Taux PAS salaire (%)','pasRate',company.pasRate,1,'Impôt retenu sur le salaire ; 0 % = hypothèse, à vérifier') +
+          numberField('Trésorerie de départ (€)','cashStart',company.cashStart,100,'Non ajoutée au revenu personnel') +
+          '</div>' +
+          '<details class="rounded-xl border border-slate-200 bg-white p-3">' +
+          '<summary class="font-semibold text-sm text-indigo-800 cursor-pointer">TVA et chiffre d’affaires historique — affiner les calculs</summary>' +
+          '<div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 mt-3">' +
+          selectCompany('Activité principale','vatActivity',company.vatActivity || 'services',
+            [['services','Prestations / services'],['sales','Ventes / commerce']],'Détermine les seuils de franchise de TVA.') +
+          selectCompany('Régime TVA','vatRegime',company.vatRegime || 'auto',
+            [['auto','Automatique (seuils 2026)'],['franchise','Franchise (à confirmer)'],['taxable','TVA au réel / option']],'Les activités exonérées de TVA nécessitent un contrôle spécifique.') +
+          numberField('Taux TVA sur ventes (%)','vatRate',company.vatRate === undefined ? 20 : company.vatRate,0.5,'20 % par défaut : adapter si taux réduit, opération exonérée ou hors champ') +
+          numberField('Achats HT soumis à TVA / mois','vatPurchaseHT',company.vatPurchaseHT,25,'Sous-ensemble des charges HT ci-dessus, au même taux. Jamais déduit deux fois.') +
+          optionalNumber('CA réalisé en 2025 (€)','previousCA',company.previousCA,'Vide = inconnu. Sert à la franchise TVA et à la CFE si créée en 2025.') +
+          optionalNumber('CA réalisé en 2024 (€)','previous2CA',company.previous2CA,'Vide = inconnu. Pour la CFE 2026 des sociétés déjà créées.') +
+          '</div></details>' +
+          '<details class="rounded-xl border border-slate-200 bg-white p-3">' +
+          '<summary class="font-semibold text-sm text-indigo-800 cursor-pointer">IS, CFE, frais récurrents et dividendes — paramètres complémentaires</summary>' +
+          '<div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 mt-3">' +
+          selectCompany('Capital intégralement libéré ?','capitalPaid',company.capitalPaid===true ? 'true':'false',
+            [['false','Non / pas confirmé'],['true','Oui, confirmé']],'Condition nécessaire au taux réduit d’IS à 15 %.') +
+          numberField('Capital détenu par des personnes physiques (%)','ownersIndividualsPct',company.ownersIndividualsPct===undefined ? 100:company.ownersIndividualsPct,5,'Le taux réduit d’IS requiert au moins 75 %.') +
+          numberField('Capital social (€)','capital',company.capital,100,'Sert à plafonner la réserve légale à 10 % du capital') +
+          numberField('Réserve légale déjà constituée (€)','reserveExisting',company.reserveExisting,50,'Réserve légale existante à déduire du plafond') +
+          numberField('Budget annuel CFE (€)','cfeAnnual',company.cfeAnnual===undefined ? 300:company.cfeAnnual,25,'300 € = provision non officielle ; remplacer par l’avis CFE. Jamais due année de création.') +
+          numberField('Banque professionnelle / mois (€)','bankMonthly',company.bankMonthly,5,'Tarif libre, pas un montant légal fixe') +
+          numberField('Comptable / mois (€)','accountantMonthly',company.accountantMonthly,10,'Prestataire facultatif ; tenir une comptabilité reste obligatoire') +
+          numberField('Assurances professionnelles / mois (€)','insuranceMonthly',company.insuranceMonthly,10,'Selon activité et obligations éventuelles') +
+          numberField('Autres taxes annuelles connues (€)','otherTaxesAnnual',company.otherTaxesAnnual,50,'Taxe sectorielle / autres taxes : ne pas doubler la CFE') +
+          numberField('Distribution du bénéfice (%)','distributionPct',company.distributionPct,5,'Dividendes théoriques après IS et réserve ; non ajoutés au budget personnel') +
+          '</div></details>' +
+          '<p class="text-[11px] text-slate-500">La rémunération et les impôts sont recalculés automatiquement. Les taux sociaux précis, la CFE locale et certains régimes fiscaux nécessitent des justificatifs.</p>' +
           '</article>';
-      }).join('') : '<p class="text-xs text-slate-500 italic py-2">Aucune société. Ajoute une SAS pour simuler son activité et ta rémunération.</p>';
+      }).join('') : '<p class="text-xs text-slate-500 italic py-2">Aucune société. Ajoute une SAS/SASU pour simuler les coûts selon sa situation.</p>';
     }
     function renderCustomSummary(sasProjection, additionalExpensesTotal) {
       const expenseAmount = document.getElementById('custom-expenses-total');
@@ -1408,25 +1471,57 @@
       if (!expenseAmount || !summary || !projections) return;
       expenseAmount.textContent = euro(additionalExpensesTotal);
       summary.innerHTML = '<div class="grid grid-cols-2 lg:grid-cols-4 gap-3">' +
-        '<div class="p-3 bg-slate-50 border border-slate-200 rounded-xl"><span class="text-xs text-slate-500 block">CA cumulé SAS HT / mois</span><strong class="text-lg font-mono text-slate-800">' + euro(sasProjection.totalCA) + '</strong></div>' +
-        '<div class="p-3 bg-emerald-50 border border-emerald-200 rounded-xl"><span class="text-xs text-emerald-800 block">Salaire net personnel / mois</span><strong class="text-lg font-mono text-emerald-800">' + euro(sasProjection.totalSalaryNet) + '</strong></div>' +
-        '<div class="p-3 bg-sky-50 border border-sky-200 rounded-xl"><span class="text-xs text-sky-800 block">Solde conservé en sociétés / mois</span><strong class="text-lg font-mono text-sky-800">' + euro(sasProjection.totalRetained) + '</strong></div>' +
-        '<div class="p-3 bg-amber-50 border border-amber-200 rounded-xl"><span class="text-xs text-amber-800 block">Dividendes nets théoriques / mois*</span><strong class="text-lg font-mono text-amber-800">' + euro(sasProjection.totalDividendNet) + '</strong></div></div>' +
-        '<p class="text-[11px] text-slate-500 mt-2">*Équivalent mensuel d’une distribution potentielle après PFU indicatif de 31,4 %, non versée automatiquement. Les droits à distribution et l’imposition réelle sont à vérifier.</p>';
+        '<div class="p-3 bg-slate-50 border border-slate-200 rounded-xl"><span class="text-xs text-slate-500 block">CA total des SAS HT / mois</span><strong class="text-lg font-mono text-slate-800">' + euro(sasProjection.totalCA) + '</strong></div>' +
+        '<div class="p-3 bg-emerald-50 border border-emerald-200 rounded-xl"><span class="text-xs text-emerald-800 block">Salaires reçus APRÈS PAS / mois</span><strong class="text-lg font-mono text-emerald-800">' + euro(sasProjection.totalSalaryNet) + '</strong></div>' +
+        '<div class="p-3 bg-sky-50 border border-sky-200 rounded-xl"><span class="text-xs text-sky-800 block">Résultat conservé dans les SAS / mois</span><strong class="text-lg font-mono text-sky-800">' + euro(sasProjection.totalRetained) + '</strong></div>' +
+        '<div class="p-3 bg-amber-50 border border-amber-200 rounded-xl"><span class="text-xs text-amber-800 block">Dividendes nets éventuels / mois*</span><strong class="text-lg font-mono text-amber-800">' + euro(sasProjection.totalDividendNet) + '</strong></div></div>' +
+        '<p class="text-[11px] text-slate-500 mt-2">*Équivalent mensuel d’une hypothèse de distribution annuelle soumise au PFU de 31,4 % en 2026 : non garanti, non ajouté aux recettes du foyer ni à la prime CAF. Le chiffre d’affaires n’est jamais un revenu personnel.</p>';
       projections.innerHTML = sasProjection.companies.map(function(c) {
-        return '<div class="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-2 text-xs">' +
-          '<h3 class="font-bold text-slate-900">' + safeMarkup(c.name) + '</h3>' +
-          '<div class="grid grid-cols-2 gap-x-3 gap-y-2">' +
-          '<span>CA HT / mois</span><strong class="text-right font-mono">' + euro(c.ca) + '</strong>' +
-          '<span>Charges + CFE / mois</span><strong class="text-right font-mono">' + euro(c.charges + c.cfeAnnual / 12) + '</strong>' +
-          '<span>Coût total rémunération / mois</span><strong class="text-right font-mono">' + euro(c.costSalary) + '</strong>' +
-          '<span>Résultat avant IS / mois</span><strong class="text-right font-mono">' + euro(c.preTax) + '</strong>' +
-          '<span>Provision IS estimée / mois</span><strong class="text-right font-mono">' + euro(c.taxAnnual / 12) + '</strong>' +
-          '<span>Résultat après IS / mois</span><strong class="text-right font-mono">' + euro(c.afterTax) + '</strong>' +
-          '<span>Solde conservé / mois</span><strong class="text-right font-mono">' + euro(c.retainedMonth) + '</strong>' +
-          '<span>Projection à 12 mois, trésorerie incluse</span><strong class="text-right font-mono ' + (c.cashTwelveMonths < 0 ? 'text-rose-600' : 'text-emerald-700') + '">' + euro(c.cashTwelveMonths) + '</strong></div>' +
-          (c.retainedMonth < 0 ? '<p class="text-rose-700 font-semibold">Attention : déficit simulé. La rémunération ou les charges dépassent les ressources après impôt.</p>' : '') +
-          '</div>';
+        const warnings = c.warnings.map(function(w) {return '<li>' + safeMarkup(w) + '</li>';}).join('');
+        const vatExplanation = c.vat.taxable
+          ? 'TVA collectée ' + euro(c.vat.outputVAT) + ' − TVA sur achats récupérable ' + euro(c.vat.recoveredVAT) + ' = ' + euro(c.vat.vatToPay) + ' / mois à reverser (ou crédit), hors résultat HT.'
+          : 'Franchise en base : TVA collectée 0 € ; TVA sur achats non récupérable ' + euro(c.nonRecoverableVATMonthly) + ' / mois, ajoutée aux charges.';
+        return '<section class="rounded-2xl border border-slate-200 bg-slate-50 p-4 space-y-3">' +
+          '<div class="flex flex-wrap items-center justify-between gap-2"><h3 class="font-bold text-slate-900 text-sm">' + safeMarkup(c.name) + '</h3>' +
+          '<span class="text-[10px] font-semibold bg-white rounded-lg border border-slate-200 px-2 py-1">' + c.form + ' · année ' + c.createdYear + '</span></div>' +
+          '<p class="text-[11px] text-slate-500">Montants en équivalent mensuel. Les frais ponctuels sont répartis sur 12 mois <strong>pour comparer</strong>, ils ne sont pas facturés chaque mois.</p>' +
+          infoRow('Chiffre d’affaires HT',c.ca,'Base de calcul, ne correspond pas au salaire du dirigeant') +
+          '<h4 class="text-xs uppercase tracking-wide text-rose-700 font-bold mt-3">Charges professionnelles et prélèvements appliqués</h4>' +
+          infoRow('Exploitation HT',c.charges,'Dépenses déclarées dans le formulaire') +
+          infoRow('Banque + comptable + assurances',c.bankMonthly+c.accountantMonthly+c.insuranceMonthly,'Tarifs renseignés, et non forfaits imposés') +
+          infoRow('Salaire net AVANT PAS',c.salaryNet,'Déduit de l’entreprise via le salaire brut et ses cotisations') +
+          infoRow('Cotisations salariales estimées',c.employeeContrib,'≈ 22 % du brut, déduites du brut vers le net') +
+          infoRow('Cotisations patronales estimées',c.employerContrib,'≈ 35 % du brut, dues en plus du brut ; hors assurance chômage') +
+          '<p class="text-[11px] rounded-lg bg-blue-50 text-blue-800 p-2">Coût total du dirigeant pour la société : <strong>' + euro(c.costSalary) +
+          ' / mois</strong> (net ' + euro(c.salaryNet) + ' + cotisations ' + euro(c.socialContrib) + '). Net réellement reçu après PAS : <strong>' + euro(c.salaryCash) +
+          '</strong>, retenue PAS : ' + euro(c.withheldPAS) + '.</p>' +
+          infoRow('CFE provisionnée',c.cfeAnnual/12,c.cfeReason) +
+          infoRow('Taxe sur salaires estimée',c.taxSalariesAnnual/12,c.taxSalariesAnnual > 0 ? 'TVA non appliquée et rémunération soumise ; barème progressif simplifié' : 'Non applicable dans ce scénario ou en dessous du seuil de recouvrement') +
+          infoRow('TVA sur achats non récupérable',c.nonRecoverableVATMonthly,'Appliquée seulement en franchise de TVA') +
+          infoRow('Formalités de création 2026',c.formationCashCost/12,c.createdYear===2026 ?
+            'RCS ' + euro(SAS_RULES_2026.registrationRCS) + ' + bénéficiaires ' + euro(SAS_RULES_2026.beneficialOwners) +
+            ' + annonce légale ' + euro(c.form === 'SASU' ? SAS_RULES_2026.legalAdSASU:SAS_RULES_2026.legalAdSAS) +
+            ' HT, TVA annonce non déductible si franchise. Coût ponctuel total ' + euro(c.formationCashCost) :
+            'Aucun frais de constitution appliqué en 2026, création antérieure') +
+          infoRow('Autres taxes annuelles renseignées',c.otherTaxesMonthly,'Exclure taxes déjà comprises ailleurs') +
+          '<h4 class="text-xs uppercase tracking-wide text-indigo-700 font-bold mt-3">Résultat fiscal projeté</h4>' +
+          infoRow('Résultat AVANT IS',c.preTax,'CA HT − charges et taxes déductibles − salaire chargé − frais création') +
+          infoRow('IS estimé',c.taxAnnual/12,c.reduced ?
+            '15 % jusqu’à 42 500 € de bénéfice annuel, puis 25 % : conditions du capital et du CA remplies selon tes réponses' :
+            'Taux 25 % appliqué ; confirmer capital libéré, détention ≥ 75 % et CA ≤ 10 M€ pour 15 %') +
+          infoRow('Résultat APRÈS IS',c.afterTax,'Peut être négatif ; aucun IS si résultat imposable négatif') +
+          infoRow('Dotation à la réserve légale',c.reserveAnnual/12,'5 % des profits jusqu’à 10 % du capital, si capital renseigné') +
+          infoRow('Distribution BRUTE théorique',c.dividendGrossMonth,'Hypothèse annuelle selon le pourcentage choisi') +
+          infoRow('PFU sur dividendes',c.dividendTaxMonth,'31,4 % en 2026, hypothèse PFU plutôt que barème') +
+          infoRow('Dividendes NETS hypothétiques',c.dividendNetMonth,'Non versés mensuellement et non ajoutés au budget') +
+          '<div class="rounded-lg bg-emerald-50 border border-emerald-200 p-3 text-emerald-950">' +
+          '<div class="flex flex-wrap items-center justify-between gap-2 text-sm font-bold"><span>Résultat conservé dans la société / mois</span><span class="font-mono">' + euro(c.retainedMonth) + '</span></div>' +
+          '<p class="text-[11px] mt-1">Projection simplifiée après 12 mois et distributions hypothétiques, avec trésorerie de départ : <strong>' + euro(c.cashTwelveMonths) + '</strong>. Cette projection n’est pas un solde bancaire prévisionnel fiable.</p></div>' +
+          '<div class="rounded-lg border border-sky-200 bg-sky-50 p-3 text-sky-950 text-xs"><strong>TVA — flux séparé des charges d’exploitation :</strong> ' +
+          vatExplanation + '<p class="mt-1 text-[11px]">' + safeMarkup(c.vat.reason) + '</p></div>' +
+          (c.retainedMonth < 0 ? '<p class="p-2 rounded-lg bg-rose-50 text-rose-700 font-semibold text-xs">Déficit projeté : les recettes ne couvrent pas les coûts. Ce scénario exige du financement ou des économies.</p>' : '') +
+          (warnings ? '<details class="border-t border-amber-200 pt-2"><summary class="text-xs font-semibold text-amber-900 cursor-pointer">À confirmer pour un montant exact (' + c.warnings.length + ')</summary><ul class="list-disc pl-5 text-[11px] text-amber-950 space-y-1 mt-2">' + warnings + '</ul></details>' : '') +
+          '</section>';
       }).join('');
     }
     function handleCustomChange(event, kind) {
@@ -1438,13 +1533,20 @@
       if (!item) return;
       if (field === 'name') item.name = event.target.value.slice(0, 100);
       else if (field === 'period') item.period = event.target.value === 'annual' ? 'annual' : 'monthly';
-      else if (field === 'reducedIS') item.reducedIS = event.target.value === 'true';
-      else if (field === 'salaryFactor') item.salaryFactor = between(event.target.value, 1, 3);
-      else if (field === 'distributionPct') item.distributionPct = between(event.target.value, 0, 100);
+      else if (field === 'capitalPaid') item.capitalPaid = event.target.value === 'true';
+      else if (field === 'form') item.form = event.target.value === 'sas' ? 'sas' : 'sasu';
+      else if (field === 'vatRegime') item.vatRegime = ['auto','franchise','taxable'].includes(event.target.value) ? event.target.value : 'auto';
+      else if (field === 'vatActivity') item.vatActivity = event.target.value === 'sales' ? 'sales' : 'services';
+      else if (field === 'previousCA' || field === 'previous2CA') item[field] = event.target.value === '' ? null : safeAmount(event.target.value);
+      else if (field === 'createdYear') item.createdYear = Math.round(between(event.target.value, 1900, 2026));
+      else if (field === 'distributionPct' || field === 'ownersIndividualsPct') item[field] = between(event.target.value, 0, 100);
+      else if (field === 'pasRate') item.pasRate = between(event.target.value, 0, 45);
+      else if (field === 'vatRate') item.vatRate = between(event.target.value, 0, 20);
       else item[field] = safeAmount(event.target.value);
       saveCustomBudget();
       updateSimulation();
     }
+
     function clearCustomModules() {
       if (!window.confirm('Supprimer toutes tes dépenses personnalisées et tes simulations de SAS enregistrées dans ce navigateur ?')) return;
       customBudget.expenses = [];
