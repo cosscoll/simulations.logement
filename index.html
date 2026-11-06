@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Simulateur Budget, CAF & Freelance 2026</title>
+  <title>Simulations 2026 — Budget personnel et SASU</title>
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Plotly.js pour le diagramme Sankey interactif -->
@@ -108,13 +108,13 @@
           €
         </div>
         <div>
-          <h1 class="text-lg font-bold text-slate-900 leading-tight">Simulateur Budget & Aides CAF 2026</h1>
-          <p class="text-xs text-slate-500 font-medium">Alternant, indépendant & SAS • Simulation indicative 2026</p>
+          <h1 class="text-lg font-bold text-slate-900 leading-tight">Simulations financières 2026</h1>
+          <p class="text-xs text-slate-500 font-medium">Deux espaces indépendants : budget personnel et entreprises</p>
         </div>
       </div>
 
       <!-- Scénarios rapides -->
-      <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1">
+      <div id="personal-presets" class="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1">
         <span class="text-xs font-semibold text-slate-400 mr-1 hidden sm:inline">Préréglages :</span>
         <button onclick="applyPreset('base_alternant')" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition whitespace-nowrap border border-indigo-200/50">
           🎓 Alternant (Base)
@@ -132,8 +132,16 @@
     </div>
   </header>
 
-  <!-- Bannière de Synthèse KPI (Sticky sous header) -->
-  <section class="bg-gradient-to-b from-slate-900 to-slate-800 text-white py-5 px-4 sm:px-6 shadow-inner">
+  <nav aria-label="Choisir son espace de simulation" class="bg-white border-b border-slate-200">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex flex-wrap gap-2">
+      <button type="button" id="tab-personal" aria-controls="personal-workspace" aria-pressed="true" onclick="switchSimulator('personal')" class="px-4 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-bold shadow-sm">Budget personnel & aides</button>
+      <button type="button" id="tab-sasu" aria-controls="sasu-workspace" aria-pressed="false" onclick="switchSimulator('sasu')" class="px-4 py-2.5 rounded-xl bg-slate-100 text-slate-700 text-sm font-bold">Simulations SASU / entreprises</button>
+      <span class="self-center text-xs text-slate-500 ml-auto">Sauvegardes distinctes · aucun calcul mélangé</span>
+    </div>
+  </nav>
+
+  <!-- Bannière de Synthèse KPI (budget personnel seulement) -->
+  <section id="personal-kpis" class="bg-gradient-to-b from-slate-900 to-slate-800 text-white py-5 px-4 sm:px-6 shadow-inner">
     <div class="max-w-7xl mx-auto">
       <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         
@@ -184,14 +192,18 @@
 
   <!-- Contenu Principal -->
   <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6 flex-grow w-full">
+    <div id="personal-workspace" class="space-y-6">
+      <div class="rounded-xl bg-indigo-50 border border-indigo-100 p-3 text-xs text-indigo-900">
+        <strong>Espace personnel :</strong> revenus, micro-entreprise, dépenses du foyer et aides. Les SASU ont leurs simulations indépendantes : ni leur CA, ni leurs bénéfices, ni leurs salaires hypothétiques ne modifient ce budget.
+      </div>
 
 
     <!-- Sauvegardes de simulations : plusieurs scénarios indépendants -->
     <section id="scenario-manager" class="bg-white rounded-2xl border border-slate-200/80 p-4 sm:p-5 shadow-sm space-y-4" aria-labelledby="scenarios-heading">
       <div class="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 id="scenarios-heading" class="text-base font-bold text-slate-900">Mes simulations enregistrées</h2>
-          <p class="text-xs text-slate-500 mt-1">Crée autant de scénarios que nécessaire, retrouve tes SAS, revenus, aides et dépenses, et reprends exactement tes saisies.</p>
+          <h2 id="scenarios-heading" class="text-base font-bold text-slate-900">Mes simulations personnelles enregistrées</h2>
+          <p class="text-xs text-slate-500 mt-1">Crée, enregistre et reprends tes revenus personnels, aides et dépenses. Les entreprises disposent de leurs propres sauvegardes.</p>
         </div>
         <div class="flex items-center gap-2 text-xs font-semibold text-slate-600 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
           <span class="w-2 h-2 rounded-full bg-emerald-500" aria-hidden="true"></span>
@@ -205,7 +217,7 @@
         </label>
         <label class="text-xs font-semibold text-slate-700">
           Nom de la simulation active
-          <input id="scenario-name" type="text" maxlength="80" placeholder="Ex. : SASU sans salaire, projet 2027" class="mt-1.5 w-full p-2.5 rounded-xl border border-slate-200 bg-slate-50 font-semibold text-sm focus:ring-2 focus:ring-indigo-500" />
+          <input id="scenario-name" type="text" maxlength="80" placeholder="Ex. : Alternance, logement et aides" class="mt-1.5 w-full p-2.5 rounded-xl border border-slate-200 bg-slate-50 font-semibold text-sm focus:ring-2 focus:ring-indigo-500" />
         </label>
       </div>
       <div class="flex flex-wrap gap-2">
@@ -671,11 +683,48 @@
     </section>
 
     <!-- Plusieurs sociétés SAS et SASU -->
+    </div>
+    <div id="sasu-workspace" class="hidden space-y-6">
+      <section class="rounded-2xl bg-gradient-to-r from-slate-900 to-indigo-950 text-white px-5 py-6 space-y-2">
+        <div class="text-[11px] font-bold text-indigo-200 uppercase tracking-widest">Espace entreprises</div>
+        <h2 class="text-xl font-bold">Simulations de SASU indépendantes</h2>
+        <p class="text-sm text-slate-300">Chiffre d'affaires, taxes, IS, TVA, comptabilité, frais annuels et réserves de trésorerie. Aucun de ces montants n'est ajouté au budget personnel.</p>
+      </section>
+      <section id="sas-scenario-manager" class="bg-white border border-indigo-200 rounded-2xl p-4 sm:p-5 shadow-sm space-y-3" aria-labelledby="sas-scenario-title">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <h2 id="sas-scenario-title" class="text-base font-bold text-slate-900">Mes simulations SASU enregistrées</h2>
+          <span id="sas-scenario-count" class="text-xs text-indigo-800 bg-indigo-50 border border-indigo-200 rounded-lg py-1.5 px-2.5">0 simulation</span>
+        </div>
+        <p class="text-xs text-slate-600">Chaque scénario contient exclusivement les sociétés et leurs paramètres fiscaux. Tu peux comparer plusieurs versions sans toucher aux simulations du foyer.</p>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <label class="text-xs font-semibold text-slate-700">Ouvrir une simulation SASU
+            <select id="sas-scenario-select" class="block w-full mt-1 p-2.5 rounded-xl border border-slate-200 bg-slate-50 text-sm"></select>
+          </label>
+          <label class="text-xs font-semibold text-slate-700">Nom de cette simulation
+            <input type="text" id="sas-scenario-name" maxlength="80" placeholder="Ex. : IA + UCP sans salariés" class="block w-full mt-1 p-2.5 rounded-xl border border-slate-200 bg-slate-50 text-sm"/>
+          </label>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <button type="button" onclick="newSasSimulation()" class="rounded-lg bg-indigo-600 text-white px-3.5 py-2 text-xs font-semibold">+ Nouvelle simulation SASU</button>
+          <button type="button" onclick="saveActiveSasSimulation(true)" class="rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-800 px-3.5 py-2 text-xs font-semibold">Enregistrer</button>
+          <button type="button" onclick="duplicateSasSimulation()" class="rounded-lg border border-slate-200 bg-slate-50 px-3.5 py-2 text-xs font-semibold">Dupliquer</button>
+          <button type="button" onclick="deleteSasSimulation()" class="rounded-lg border border-rose-200 bg-rose-50 text-rose-700 px-3.5 py-2 text-xs font-semibold">Supprimer</button>
+        </div>
+        <div class="border-t border-slate-100 pt-3 flex flex-wrap justify-between items-center gap-2">
+          <p id="sas-scenario-status" aria-live="polite" role="status" class="text-xs text-slate-500">Initialisation des simulations d'entreprise…</p>
+          <div class="flex flex-wrap gap-2">
+            <button type="button" onclick="exportSasSimulations()" class="rounded-lg border border-indigo-200 text-indigo-800 bg-indigo-50 px-3 py-2 text-xs font-semibold">Exporter SASU (.json)</button>
+            <button type="button" onclick="document.getElementById('sas-scenario-import').click()" class="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold">Importer SASU</button>
+            <input id="sas-scenario-import" type="file" accept="application/json,.json" class="hidden" aria-label="Importer des simulations SASU"/>
+          </div>
+        </div>
+        <p class="text-[11px] text-slate-500">Stockage sur ce navigateur uniquement : pour conserver ou transférer les simulations, exporte un fichier JSON.</p>
+      </section>
     <section class="bg-white rounded-2xl border border-slate-200/80 p-4 sm:p-6 shadow-sm space-y-4" aria-labelledby="sas-heading">
       <div class="flex flex-wrap gap-3 items-start justify-between">
         <div class="max-w-3xl">
           <h2 id="sas-heading" class="text-base font-bold text-slate-900">Mes sociétés SAS / SASU</h2>
-          <p class="text-xs text-slate-500 mt-1">Simule plusieurs sociétés. Seuls les salaires nets du dirigeant entrent dans ton budget personnel ; le chiffre d'affaires et les bénéfices restent dans les sociétés.</p>
+          <p class="text-xs text-slate-500 mt-1">Simule le CA, la fiscalité, les frais et la trésorerie des sociétés sans les ajouter aux recettes personnelles. Pour une rémunération réellement versée, renseigne séparément tes revenus dans l'espace Budget personnel.</p>
           <a class="inline-flex items-center gap-1 mt-2 text-xs font-semibold text-indigo-700 underline" href="https://github.com/cosscoll/simulations.logement/blob/main/SASU_CALCULS_AUTOMATIQUES_2026.md" target="_blank" rel="noopener noreferrer">Voir les hypothèses, les tarifs 2026 et les obligations de chaque SASU</a>
           <a class="inline-flex items-center gap-1 mt-2 ml-3 text-xs font-semibold text-indigo-700 underline" href="https://github.com/cosscoll/simulations.logement/blob/main/BUDGET_ANNUEL_DEUX_SASU_2026.md" target="_blank" rel="noopener noreferrer">Budget annuel IA + UCP, détail des coûts et réserves</a>
         </div>
@@ -705,11 +754,12 @@
         </p>
       </div>
       <div class="flex flex-wrap gap-2">
-        <button type="button" onclick="exportCustomCSV()" class="rounded-lg border border-indigo-200 bg-indigo-50 text-indigo-800 px-3 py-2 text-xs font-semibold hover:bg-indigo-100">Exporter mon scénario (CSV)</button>
-        <button type="button" onclick="clearCustomModules()" class="rounded-lg border border-slate-200 bg-slate-50 text-slate-600 px-3 py-2 text-xs font-semibold hover:bg-slate-100">Effacer mes ajouts</button>
+        <button type="button" onclick="exportCustomCSV()" class="rounded-lg border border-indigo-200 bg-indigo-50 text-indigo-800 px-3 py-2 text-xs font-semibold hover:bg-indigo-100">Exporter le bilan SASU (CSV)</button>
+        <button type="button" onclick="clearSasCompanies()" class="rounded-lg border border-slate-200 bg-slate-50 text-slate-600 px-3 py-2 text-xs font-semibold hover:bg-slate-100">Effacer les sociétés de ce scénario</button>
         <span class="text-xs text-slate-500 self-center">Données enregistrées dans ce navigateur uniquement.</span>
       </div>
     </section>
+    </div>
 
   </main>
 
