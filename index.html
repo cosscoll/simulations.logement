@@ -1169,6 +1169,13 @@
         company.cfeLocalRate = 30;
       }
       if (company.operatingCostMode === undefined) company.operatingCostMode = 'auto';
+      // Les anciennes simulations conservent leurs frais saisis : les nouveaux
+      // profils conditionnels ne retirent rien d'un mode "manuel".
+      if (company.activitySector===undefined) company.activitySector='digital';
+      if (company.accountingPlan===undefined) company.accountingPlan='self';
+      if (company.bankPlan===undefined) company.bankPlan='economy';
+      if (company.insurancePlan===undefined) company.insurancePlan='sector';
+      if (company.premisesMode===undefined) company.premisesMode='home';
       return company;
     }
     function loadCustomBudget() {
@@ -1698,11 +1705,34 @@
             [['auto','Automatique à partir du CA (estimation)'],['provision','Budget de CFE saisi'],['notice','Avis fiscal 2026 exact']],'Le montant local exact dépend de la commune et d’une base minimum/immobilière.') +
           numberField('Taux CFE communal supposé (%)','cfeLocalRate',company.cfeLocalRate===undefined?30:company.cfeLocalRate,1,'30 % par défaut, hypothèse indicative : saisir le taux communal si connu.') +
           numberField('CFE annuelle de référence/avis (€)','cfeAnnual',company.cfeAnnual===undefined?300:company.cfeAnnual,25,'Utilisée seulement en mode budget/avis. En mode auto : estimation sur base de CA et taux communal supposé.') +
-          selectCompany('Frais de gestion de société','operatingCostMode',company.operatingCostMode || 'auto',
-            [['auto','Automatiques : 105 €/mois de provision'],['manual','Personnalisés : tes montants réels']],'Frais de banque, compta et assurance ne sont pas des taxes obligatoires. Choisir personnalisé pour saisir zéro.') +
-          numberField('Banque professionnelle / mois (€)','bankMonthly',company.bankMonthly===undefined?15:company.bankMonthly,5,'Mode personnalisé uniquement, sinon 15 €/mois prévus') +
-          numberField('Comptable / mois (€)','accountantMonthly',company.accountantMonthly===undefined?75:company.accountantMonthly,10,'Mode personnalisé uniquement, sinon 75 €/mois prévus ; prestataire facultatif') +
-          numberField('Assurances professionnelles / mois (€)','insuranceMonthly',company.insuranceMonthly===undefined?15:company.insuranceMonthly,10,'Mode personnalisé uniquement, sinon 15 €/mois prévus ; selon activité') +
+          selectCompany('Calcul des frais de prestataires','operatingCostMode',company.operatingCostMode || 'auto',
+            [['auto','Selon mes choix (recommandé)'],['manual','Montants personnalisés']],'Le comptable n’est pas obligatoire : les livres comptables et le dépôt des comptes le restent.') +
+          selectCompany('Nature de l’activité','activitySector',company.activitySector || 'digital',
+            [['digital','Conseil / web / services numériques'],['retail','Commerce / e-commerce'],['regulated','Profession réglementée'],['building','BTP / travaux'],['other','Autre activité']],'Peut rendre certaines assurances obligatoires. Vérifier les autorisations propres à la profession.') +
+          selectCompany('Banque : formule utilisée','bankPlan',company.bankPlan || 'economy',
+            [['free','Offre 0 € / mois (si accessible)'],['economy','Économique : 9 € / mois (estimé)'],['traditional','Banque traditionnelle : 22 €/mois (estimé)'],['custom','Tarif saisi ci-dessous']],'Le dépôt de capital est obligatoire lors de la création ; aucun prix bancaire universel n’existe.') +
+          numberField('Abonnement bancaire personnalisé (€ / mois)','bankMonthly',company.bankMonthly===undefined?9:company.bankMonthly,1,'Utilisé si tarif banque personnalisé ou mode frais personnalisé') +
+          selectCompany('Organisation de la comptabilité','accountingPlan',company.accountingPlan || 'self',
+            [['self','Je tiens ma comptabilité moi-même : 0 € de prestataire'],['software','Je la gère avec logiciel : 18 €/mois estimés'],['accountant','Expert-comptable externe : 95 €/mois estimés'],['custom','Prestation personnalisée ci-dessous']],'Tenue, comptes annuels et obligations déclaratives obligatoires ; expert-comptable facultatif.') +
+          numberField('Comptabilité personnalisée (€ / mois)','accountantMonthly',company.accountantMonthly===undefined?0:company.accountantMonthly,5,'Utilisé en mode prestation personnalisée, sinon selon le choix ci-dessus') +
+          selectCompany('Assurance de l’activité','insurancePlan',company.insurancePlan || 'sector',
+            [['sector','Selon le secteur (0 €/mois si non réglementé)'],['none','Aucune RC souscrite'],['rc','RC professionnelle : 18 €/mois (estimé)'],['regulated','Assurance réglementée : 55 €/mois (estimé)'],['building','BTP / décennale : 140 €/mois (indicatif)'],['custom','Montant réel ci-dessous']],'Certains métiers imposent une assurance. Un devis reste indispensable.') +
+          numberField('Assurance activité personnalisée (€ / mois)','insuranceMonthly',company.insuranceMonthly===undefined?0:company.insuranceMonthly,5,'Utilisée en assurance personnalisée ; assurances véhicule/local ajoutées séparément') +
+          selectCompany('Lieu d’exercice / domiciliation','premisesMode',company.premisesMode || 'home',
+            [['home','Au domicile : aucun frais dédié supposé'],['domiciliation','Société de domiciliation : 25 €/mois estimés'],['coworking','Coworking : 120 €/mois estimés'],['office','Local loué : 350 €/mois + assurance locale estimée']],'Ne renseigne pas une seconde fois ce loyer dans les charges professionnelles générales.') +
+          numberField('Nombre de véhicules détenus / loués par la SASU','companyVehicles',company.companyVehicles===undefined?0:company.companyVehicles,1,'Assurance obligatoire : provision automatique de 55 €/mois par véhicule') +
+          numberField('Domiciliation / local personnalisé (€ / mois)','domiciliationMonthly',company.domiciliationMonthly===undefined?0:company.domiciliationMonthly,5,'Utilisé seulement en mode frais personnalisés') +
+          '<p class="sm:col-span-2 xl:col-span-4 mt-1 font-semibold text-xs text-indigo-900">Frais de constitution et obligations comptables annuelles</p>' +
+          selectCompany('Dépôt du capital : frais prestataire','capitalDepositMode',company.capitalDepositMode || 'free',
+            [['free','Banque / notaire : aucun frais facturé supposé'],['paid','Attestation / service : 35 € ponctuels estimés'],['custom','Montant ponctuel réel ci-dessous']],'Déposer le capital est obligatoire ; le capital versé N’EST PAS une dépense et ne réduit pas le bénéfice.') +
+          numberField('Frais de dépôt du capital personnalisés (€)','capitalDepositFee',company.capitalDepositFee===undefined?0:company.capitalDepositFee,10,'Utilisés uniquement en mode personnalisé, lors de la création') +
+          numberField('Assistance à la rédaction / création (€ ponctuels)','formationAdvisorFee',company.formationAdvisorFee===undefined?0:company.formationAdvisorFee,50,'Prestataire facultatif : 0 € si constitution autonome') +
+          selectCompany('Frais dépôt comptes annuels','filingMode',company.filingMode || 'auto',
+            [['auto','Tarif de référence : 44,14 €/an'],['custom','Tarif réellement facturé ci-dessous']],'Obligation après approbation ; pour création 2026, premier dépôt généralement l’année suivante.') +
+          numberField('Dépôt annuel personnalisé (€ / an)','filingAnnualFee',company.filingAnnualFee===undefined?44.14:company.filingAnnualFee,1,'En mode personnalisé. Référence 44,14 € TTC par correspondance en 2026, tarif en ligne à confirmer.') +
+          '<p class="sm:col-span-2 xl:col-span-4 mt-1 font-semibold text-xs text-indigo-900">Salariés éventuels (hors dirigeant)</p>' +
+          numberField('Nombre de salariés','staffCount',company.staffCount===undefined?0:company.staffCount,1,'Sans salariés, salaire et mutuelle employeur = 0 €') +
+          numberField('Salaire brut par salarié (€ / mois)','staffGrossMonthly',company.staffGrossMonthly===undefined?0:company.staffGrossMonthly,100,'Coût employeur estimé en plus : 40 % du brut + 30 €/mois de mutuelle par salarié') +
           numberField('Autres taxes annuelles connues (€)','otherTaxesAnnual',company.otherTaxesAnnual,50,'Taxe sectorielle / autres taxes : ne pas doubler la CFE') +
           numberField('Distribution du bénéfice (%)','distributionPct',company.distributionPct,5,'Dividendes théoriques après IS et réserve ; non ajoutés au budget personnel') +
           '</div></details>' +
@@ -1799,12 +1829,21 @@
       else if (field === 'vatActivity') item.vatActivity = event.target.value === 'sales' ? 'sales' : 'services';
       else if (field === 'cfeMode') item.cfeMode = ['auto','notice','provision'].includes(event.target.value) ? event.target.value : 'auto';
       else if (field === 'operatingCostMode') item.operatingCostMode = event.target.value === 'manual' ? 'manual' : 'auto';
+      else if (field === 'activitySector') item.activitySector = ['digital','retail','regulated','building','other'].includes(event.target.value) ? event.target.value : 'digital';
+      else if (field === 'premisesMode') item.premisesMode = ['home','domiciliation','coworking','office'].includes(event.target.value) ? event.target.value : 'home';
+      else if (field === 'bankPlan') item.bankPlan = ['free','economy','traditional','custom'].includes(event.target.value) ? event.target.value : 'economy';
+      else if (field === 'accountingPlan') item.accountingPlan = ['self','software','accountant','custom'].includes(event.target.value) ? event.target.value : 'self';
+      else if (field === 'insurancePlan') item.insurancePlan = ['sector','none','rc','regulated','building','custom'].includes(event.target.value) ? event.target.value : 'sector';
+      else if (field === 'filingMode') item.filingMode = event.target.value === 'custom' ? 'custom' : 'auto';
+      else if (field === 'capitalDepositMode') item.capitalDepositMode = ['free','paid','custom'].includes(event.target.value) ? event.target.value : 'free';
       else if (field === 'previousCA' || field === 'previous2CA') item[field] = event.target.value === '' ? null : safeAmount(event.target.value);
       else if (field === 'createdYear') item.createdYear = Math.round(between(event.target.value, 1900, 2026));
       else if (field === 'distributionPct' || field === 'ownersIndividualsPct') item[field] = between(event.target.value, 0, 100);
       else if (field === 'pasRate') item.pasRate = between(event.target.value, 0, 45);
       else if (field === 'vatRate') item.vatRate = between(event.target.value, 0, 20);
       else if (field === 'cfeLocalRate') item.cfeLocalRate = between(event.target.value, 0, 100);
+      else if (field === 'staffCount') item.staffCount = Math.floor(between(event.target.value, 0, 50));
+      else if (field === 'companyVehicles') item.companyVehicles = Math.floor(between(event.target.value, 0, 20));
       else item[field] = safeAmount(event.target.value);
       saveCustomBudget();
       updateSimulation();
