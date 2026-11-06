@@ -1633,7 +1633,23 @@
         const dividendTaxMonth = dividendGrossMonth * SAS_RULES_2026.withholdingPFU;
         const dividendNetMonth = dividendGrossMonth - dividendTaxMonth;
         const retainedMonth = (afterTaxAnnual - dividendGrossMonth * 12) / 12;
-        const cashTwelveMonths = safeAmount(company.cashStart) + retainedMonth * 12;
+        // Première création 2026 : le dépôt des premiers comptes intervient
+        // généralement après la première clôture. On le met de côté pour
+        // visualiser le budget futur, sans le déduire deux fois de l'IS 2026.
+        const nextFilingReserveAnnual=services.futureFiling;
+        const cashAvailableAnnual=afterTaxAnnual - dividendGrossMonth*12 - nextFilingReserveAnnual;
+        const cashAvailableMonthly=cashAvailableAnnual/12;
+        const cashTwelveMonths = safeAmount(company.cashStart) + cashAvailableAnnual;
+        const recurringServicesAnnual=services.monthlyTotal*12;
+        const otherYearlyTaxes=cfeAnnual+cvaeAnnual+taxSalariesAnnual+taxeApprentissageAnnual+12*otherTaxesMonthly;
+        const operatingExpensesAnnual=charges*12;
+        const annualTaxNetAfterIS=taxAnnual+socialISAnnual;
+        const totalActualDeductedAnnual=operatingExpensesAnnual+recurringServicesAnnual+
+          services.annualFiling+yearlyPayroll+yearlyNonRecoverableVAT+
+          otherYearlyTaxes+formationCashCost;
+        // Reconciliation: CA - all current-year expenses - IS = earnings after tax.
+        // Les cotisations sont DÉJÀ comprises dans yearlyPayroll.
+        const reconciliationDelta=annualIncome-totalActualDeductedAnnual-annualTaxNetAfterIS-afterTaxAnnual;
 
         // TVA : flux distinct du résultat HT (TVA collectée - récupérable). Si franchise,
         // TVA amont non récupérable déjà comptée comme une charge.
@@ -1665,6 +1681,11 @@
           cvaeAnnual:cvaeAnnual,cvaeBase:cv.base,cvaeRate:cv.rate,cvaeEstimated:cv.estimated,
           resultBeforeISAnnual: resultBeforeISAnnual, yearlyOperating: yearlyOperating,
           yearlyPayroll: yearlyPayroll, annualExpenses: annualExpenses,
+          annualIncome:annualIncome,operatingExpensesAnnual:operatingExpensesAnnual,
+          recurringServicesAnnual:recurringServicesAnnual,otherYearlyTaxes:otherYearlyTaxes,
+          totalActualDeductedAnnual:totalActualDeductedAnnual,
+          yearlyNonRecoverableVAT:yearlyNonRecoverableVAT,
+          annualTaxNetAfterIS:annualTaxNetAfterIS,reconciliationDelta:reconciliationDelta,
           preTax: resultBeforeISAnnual / 12, taxableAnnual: taxableAnnual,
           taxAnnual: taxAnnual, socialISAnnual:socialISAnnual, afterTax: afterTaxAnnual / 12, afterTaxAnnual: afterTaxAnnual,
           totalTaxesAndSocialAnnual:taxAnnual+socialISAnnual+cfeAnnual+cvaeAnnual+taxSalariesAnnual+taxeApprentissageAnnual+
@@ -1672,7 +1693,9 @@
           reserveAnnual: reserveAnnual, distributionPct: distributionPct,
           dividendGrossMonth: dividendGrossMonth, dividendTaxMonth: dividendTaxMonth,
           dividendNetMonth: dividendNetMonth, retainedMonth: retainedMonth,
-          cashTwelveMonths: cashTwelveMonths, reduced: reduced,
+          cashTwelveMonths: cashTwelveMonths, cashAvailableAnnual:cashAvailableAnnual,
+          cashAvailableMonthly:cashAvailableMonthly,nextFilingReserveAnnual:nextFilingReserveAnnual,
+          reduced: reduced,
           capitalPaid: capitalPaid, ownership: ownership, warnings: warnings
         };
       });
@@ -1795,6 +1818,10 @@
           '<span class="block text-[10px] text-slate-500 font-normal">Détermine les formalités et l’exonération de CFE.</span></label>' +
           numberField('CA HT moyen par mois','ca',company.ca,100,'Recettes hors TVA, supposées constantes sur 12 mois') +
           numberField('Charges professionnelles HT / mois','charges',company.charges,50,'Achats, logiciels, déplacements, loyer… sans compter les coûts séparés ci-dessous') +
+          selectCompany('Comptabilité : qui la réalise ?','accountingPlan',company.accountingPlan || 'self',
+            [['self','Moi-même (0 € de prestation)'],['software','Logiciel (18 €/mois estimés)'],['accountant','Expert-comptable (95 €/mois estimés)'],['custom','Tarif personnalisé dans les options']],'La tenue des comptes reste obligatoire même si tu ne prends pas de comptable. Les frais de cette sélection sont déduits automatiquement.') +
+          selectCompany('Mode de dépenses SASU','operatingCostMode',company.operatingCostMode || 'auto',
+            [['auto','Selon les choix du formulaire'],['manual','Montants personnalisés dans les options']],'Si Personnalisé est choisi, les tarifs du profil automatique ne sont pas utilisés.') +
           numberField('Salaire net AVANT impôt / mois','salaryNet',company.salaryNet,50,'0 € = aucune cotisation sociale du président sur salaire') +
           numberField('Taux PAS salaire (%)','pasRate',company.pasRate,1,'Impôt retenu sur le salaire ; 0 % = hypothèse, à vérifier') +
           numberField('Trésorerie de départ (€)','cashStart',company.cashStart,100,'Non ajoutée au revenu personnel') +
@@ -1824,15 +1851,11 @@
             [['auto','Automatique à partir du CA (estimation)'],['provision','Budget de CFE saisi'],['notice','Avis fiscal 2026 exact']],'Le montant local exact dépend de la commune et d’une base minimum/immobilière.') +
           numberField('Taux CFE communal supposé (%)','cfeLocalRate',company.cfeLocalRate===undefined?30:company.cfeLocalRate,1,'30 % par défaut, hypothèse indicative : saisir le taux communal si connu.') +
           numberField('CFE annuelle de référence/avis (€)','cfeAnnual',company.cfeAnnual===undefined?300:company.cfeAnnual,25,'Utilisée seulement en mode budget/avis. En mode auto : estimation sur base de CA et taux communal supposé.') +
-          selectCompany('Calcul des frais de prestataires','operatingCostMode',company.operatingCostMode || 'auto',
-            [['auto','Selon mes choix (recommandé)'],['manual','Montants personnalisés']],'Le comptable n’est pas obligatoire : les livres comptables et le dépôt des comptes le restent.') +
           selectCompany('Nature de l’activité','activitySector',company.activitySector || 'digital',
             [['digital','Conseil / web / services numériques'],['retail','Commerce / e-commerce'],['regulated','Profession réglementée'],['building','BTP / travaux'],['other','Autre activité']],'Peut rendre certaines assurances obligatoires. Vérifier les autorisations propres à la profession.') +
           selectCompany('Banque : formule utilisée','bankPlan',company.bankPlan || 'economy',
             [['free','Offre 0 € / mois (si accessible)'],['economy','Économique : 9 € / mois (estimé)'],['traditional','Banque traditionnelle : 22 €/mois (estimé)'],['custom','Tarif saisi ci-dessous']],'Le dépôt de capital est obligatoire lors de la création ; aucun prix bancaire universel n’existe.') +
           numberField('Abonnement bancaire personnalisé (€ / mois)','bankMonthly',company.bankMonthly===undefined?9:company.bankMonthly,1,'Utilisé si tarif banque personnalisé ou mode frais personnalisé') +
-          selectCompany('Organisation de la comptabilité','accountingPlan',company.accountingPlan || 'self',
-            [['self','Je tiens ma comptabilité moi-même : 0 € de prestataire'],['software','Je la gère avec logiciel : 18 €/mois estimés'],['accountant','Expert-comptable externe : 95 €/mois estimés'],['custom','Prestation personnalisée ci-dessous']],'Tenue, comptes annuels et obligations déclaratives obligatoires ; expert-comptable facultatif.') +
           numberField('Comptabilité personnalisée (€ / mois)','accountantMonthly',company.accountantMonthly===undefined?0:company.accountantMonthly,5,'Utilisé en mode prestation personnalisée, sinon selon le choix ci-dessus') +
           selectCompany('Assurance de l’activité','insurancePlan',company.insurancePlan || 'sector',
             [['sector','Selon le secteur (0 €/mois si non réglementé)'],['none','Aucune RC souscrite'],['rc','RC professionnelle : 18 €/mois (estimé)'],['regulated','Assurance réglementée : 55 €/mois (estimé)'],['building','BTP / décennale : 140 €/mois (indicatif)'],['custom','Montant réel ci-dessous']],'Certains métiers imposent une assurance. Un devis reste indispensable.') +
