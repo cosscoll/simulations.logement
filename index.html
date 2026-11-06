@@ -1207,49 +1207,56 @@
       return value === null || value === '' || typeof value === 'undefined' ? null : safeAmount(value);
     }
     function companyName(company) {return String(company.name || 'Société sans nom');}
-    function determineTVA(company, projectedAnnual, yearCreated, warning) {
-      const activity = company.vatActivity === 'sales' ? 'sales' : 'services';
-      const basic = activity === 'sales' ? 85000 : 37500;
-      const upper = activity === 'sales' ? 93500 : 41250;
-      const prior = knownAmount(company.previousCA);
-      const setting = company.vatRegime || 'auto';
-      let taxable = false, reason = '';
-      if (setting === 'taxable') {
-        taxable = true;
-        reason = 'TVA activée (option ou régime réel choisi).';
-      } else if (setting === 'franchise') {
-        taxable = false;
-        reason = 'Franchise sélectionnée manuellement : vérifier les seuils et l’absence d’option pour la TVA.';
-        if (projectedAnnual > upper || (prior !== null && prior > basic))
-          warning.push('Franchise TVA potentiellement incompatible avec les seuils : vérifier immédiatement la date de bascule.');
-      } else if (prior !== null && prior > basic) {
-        taxable = true;
-        reason = 'CA déclaré de N−1 supérieur au seuil de base (' + euro(basic) + ') : TVA dès le début de l’année, sous réserve du régime réel.';
-      } else if (projectedAnnual > upper) {
-        taxable = true;
-        reason = 'CA annualisé au-dessus de ' + euro(upper) + ' : projection au régime TVA ; la date réelle de franchissement en cours d’année doit être vérifiée.';
-        warning.push('TVA calculée comme si toute l’année était soumise à la taxe : la date réelle de bascule peut réduire la TVA annuelle due.');
-      } else {
-        taxable = false;
-        reason = 'Franchise en base estimée sous le seuil majoré (' + euro(upper) + ').';
-        if (prior === null && yearCreated < 2026)
-          warning.push('CA 2025 non renseigné : la franchise de TVA n’est pas confirmée.');
-        if (projectedAnnual > basic)
-          warning.push('CA annualisé au-dessus du seuil normal de franchise : effet possible au 1er janvier suivant.');
+    function determineTVA(company, projectedAnnual, yearCreated, warnings) {
+      // Modèle de 12 mois de CA HT constant : le seuil majoré est franchi
+      // au cours du mois calculé, pas rétroactivement sur les 12 mois.
+      const activity=company.vatActivity==='sales'?'sales':'services';
+      const basic=activity==='sales'?85000:37500;
+      const upper=activity==='sales'?93500:41250;
+      const prior=knownAmount(company.previousCA);
+      const setting=company.vatRegime||'auto';
+      const monthlyCA=projectedAnnual/12;
+      let monthsTaxable=0, reason='', firstTaxableMonth=null;
+      const previousYearExceeded=prior!==null && prior>basic;
+      const currentYearCrossed=projectedAnnual>upper && monthlyCA>0;
+      if(setting==='taxable'||previousYearExceeded){
+        monthsTaxable=12;firstTaxableMonth=1;
+        reason=setting==='taxable'?'TVA activée : option ou régime au réel renseigné.':
+          'CA de l’année précédente au-dessus du seuil de '+euro(basic)+' : TVA appliquée dès janvier dans ce scénario.';
+        if(setting==='franchise'&&previousYearExceeded)
+          warnings.push('Franchise TVA sélectionnée mais CA N−1 au-dessus du seuil : simulation automatiquement basculée en TVA.');
+      }else if(currentYearCrossed){
+        firstTaxableMonth=Math.max(1,Math.min(12,Math.floor(upper/monthlyCA)+1));
+        monthsTaxable=13-firstTaxableMonth;
+        reason='Seuil majoré de '+euro(upper)+' franchi au mois '+firstTaxableMonth+
+          ' sur 12 mois à CA identique : '+monthsTaxable+' mois soumis à la TVA dans la projection.';
+        warnings.push('Date de franchissement TVA : approximation mensuelle. En réalité la taxe devient applicable dès le jour de dépassement et dépend des factures.');
+        if(setting==='franchise')
+          warnings.push('Franchise choisie mais CA annualisé supérieur au seuil majoré : la TVA est appliquée automatiquement pour éviter une exonération fictive.');
+      }else{
+        reason='Franchise en base estimée (CA annuel sous le seuil majoré de '+euro(upper)+').';
+        if(prior===null&&yearCreated<2026)
+          warnings.push('CA 2025 absent : le maintien de la franchise TVA en 2026 ne peut pas être confirmé.');
+        if(projectedAnnual>basic)
+          warnings.push('CA prévisionnel au-dessus du seuil de base : TVA potentiellement due dès le 1er janvier suivant.');
       }
-      const rate = between(company.vatRate === undefined ? 20 : company.vatRate, 0, 20) / 100;
-      const eligiblePurchase = Math.min(safeAmount(company.vatPurchaseHT), safeAmount(company.charges));
-      const inputVAT = eligiblePurchase * rate;
-      const outputVAT = taxable ? projectedAnnual / 12 * rate : 0;
-      const recoverableVAT = taxable ? inputVAT : 0;
+      const rate=between(company.vatRate===undefined?20:company.vatRate,0,20)/100;
+      const eligiblePurchase=Math.min(safeAmount(company.vatPurchaseHT),safeAmount(company.charges));
+      const normalMonthlyInputVAT=eligiblePurchase*rate;
+      const normalMonthlyOutputVAT=monthlyCA*rate;
+      const share=monthsTaxable/12;
+      const outputVAT=normalMonthlyOutputVAT*share;
+      const recoveredVAT=normalMonthlyInputVAT*share;
+      const nonRecoverableVAT=normalMonthlyInputVAT*(1-share);
       return {
-        taxable: taxable, reason: reason, rate: rate,
-        inputVAT: inputVAT, outputVAT: outputVAT,
-        recoveredVAT: recoverableVAT,
-        vatToPay: outputVAT - recoverableVAT,
-        nonRecoverableVAT: taxable ? 0 : inputVAT,
-        eligiblePurchase: eligiblePurchase,
-        thresholdBasic: basic, thresholdUpper: upper
+        taxable:monthsTaxable>0,monthsTaxable:monthsTaxable,
+        firstTaxableMonth:firstTaxableMonth,taxableAtCreation:firstTaxableMonth===1,
+        reason:reason,rate:rate,eligiblePurchase:eligiblePurchase,
+        inputVAT:normalMonthlyInputVAT,outputVAT:outputVAT,recoveredVAT:recoveredVAT,
+        vatToPay:outputVAT-recoveredVAT,nonRecoverableVAT:nonRecoverableVAT,
+        thresholdBasic:basic,thresholdUpper:upper,
+        vatYear:12*(outputVAT-recoveredVAT),
+        projection:'Moyenne sur 12 mois : TVA calculée uniquement sur les mois soumis au régime.'
       };
     }
     function estimatedSalaryTaxes(grossMonthly) {
@@ -1276,9 +1283,14 @@
         const priorCa = knownAmount(company.previousCA);
         const caMinusTwo = knownAmount(company.previous2CA);
         const vat = determineTVA(company, ca * 12, createdYear, warnings);
-        const bankMonthly = safeAmount(company.bankMonthly);
-        const accountantMonthly = safeAmount(company.accountantMonthly);
-        const insuranceMonthly = safeAmount(company.insuranceMonthly);
+        const expensesAuto = company.operatingCostMode !== 'manual';
+        // Ces tarifs NE SONT PAS des taxes : budgets indicatifs de services
+        // facultatifs. L'utilisateur peut choisir des frais réels ou 0 €.
+        const bankMonthly = expensesAuto ? 15 : safeAmount(company.bankMonthly);
+        const accountantMonthly = expensesAuto ? 75 : safeAmount(company.accountantMonthly);
+        const insuranceMonthly = expensesAuto ? 15 : safeAmount(company.insuranceMonthly);
+        if(expensesAuto)
+          warnings.push('Fonctionnement : provision de 105 €/mois (banque 15 €, comptabilité 75 €, assurance 15 €). Ce sont des hypothèses facultatives, modifiables en mode personnalisé.');
         const otherTaxesMonthly = safeAmount(company.otherTaxesAnnual) / 12;
 
         // Le président SAS est assimilé salarié, hors assurance chômage.
@@ -1331,7 +1343,7 @@
         const legalAdHT = form === 'SASU' ? SAS_RULES_2026.legalAdSASU : SAS_RULES_2026.legalAdSAS;
         const newCompany = createdYear === 2026;
         const formationHT = newCompany ? SAS_RULES_2026.registrationRCS + SAS_RULES_2026.beneficialOwners + legalAdHT : 0;
-        const formationNotRecoverableVAT = newCompany && !vat.taxable ? legalAdHT * .20 : 0;
+        const formationNotRecoverableVAT = newCompany && !vat.taxableAtCreation ? legalAdHT * .20 : 0;
         const formationCashCost = formationHT + formationNotRecoverableVAT;
         if (newCompany) warnings.push('Frais de création calculés une seule fois pour 2026 (hors frais de statuts, dépôt de capital et autres prestations).');
 
@@ -1352,7 +1364,11 @@
         const taxAnnual = reduced
           ? Math.min(taxableAnnual, 42500) * SAS_RULES_2026.lowerIS + Math.max(0, taxableAnnual - 42500) * SAS_RULES_2026.standardIS
           : taxableAnnual * SAS_RULES_2026.standardIS;
-        const afterTaxAnnual = resultBeforeISAnnual - taxAnnual;
+        // Contribution sociale sur l'IS (3,3 %) au-delà de 763 000 € d'IS,
+        // sauf exonération PME (CA ≤ 7,63 M€ + capital libéré et détention ≥ 75 %).
+        const contributionISExempt = annualIncome<=7630000 && capitalPaid && ownership>=75;
+        const socialISAnnual = contributionISExempt ? 0 : Math.max(0,taxAnnual-763000)*0.033;
+        const afterTaxAnnual = resultBeforeISAnnual - taxAnnual - socialISAnnual;
 
         // Réserve légale (5 % jusqu'à 10 % du capital), si capital renseigné.
         const capital = safeAmount(company.capital);
@@ -1387,14 +1403,15 @@
           socialContrib: socialContrib, costSalary: costSalary,
           salaryCash: salaryCash, withheldPAS: withheldPAS,
           bankMonthly: bankMonthly, accountantMonthly: accountantMonthly,
-          insuranceMonthly: insuranceMonthly, otherTaxesMonthly: otherTaxesMonthly,
+          insuranceMonthly: insuranceMonthly, expensesAuto:expensesAuto, otherTaxesMonthly: otherTaxesMonthly,
           formationHT: formationHT, formationCashCost: formationCashCost,
           cfeAnnual: cfeAnnual, cfeReason: cfeReason,
           vat: vat, taxSalariesAnnual: taxSalariesAnnual, nonRecoverableVATMonthly: vat.nonRecoverableVAT,
           resultBeforeISAnnual: resultBeforeISAnnual, yearlyOperating: yearlyOperating,
           yearlyPayroll: yearlyPayroll, annualExpenses: annualExpenses,
           preTax: resultBeforeISAnnual / 12, taxableAnnual: taxableAnnual,
-          taxAnnual: taxAnnual, afterTax: afterTaxAnnual / 12, afterTaxAnnual: afterTaxAnnual,
+          taxAnnual: taxAnnual, socialISAnnual:socialISAnnual, afterTax: afterTaxAnnual / 12, afterTaxAnnual: afterTaxAnnual,
+          totalTaxesAndSocialAnnual:taxAnnual+socialISAnnual+cfeAnnual+taxSalariesAnnual+socialContrib*12+otherTaxesMonthly*12,
           reserveAnnual: reserveAnnual, distributionPct: distributionPct,
           dividendGrossMonth: dividendGrossMonth, dividendTaxMonth: dividendTaxMonth,
           dividendNetMonth: dividendNetMonth, retainedMonth: retainedMonth,
@@ -1435,7 +1452,7 @@
         previousCA: null, previous2CA: null,
         cfeAnnual: 300, cfeMode:'provision', capitalPaid: false, ownersIndividualsPct: 100,
         capital: 0, reserveExisting: 0,
-        bankMonthly: 0, accountantMonthly: 0, insuranceMonthly: 0,
+        operatingCostMode:'auto', bankMonthly: 15, accountantMonthly: 75, insuranceMonthly: 15,
         otherTaxesAnnual: 0, distributionPct: 0, cashStart: 0
       });
       saveCustomBudget();
