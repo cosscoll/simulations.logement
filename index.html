@@ -795,103 +795,63 @@
       document.getElementById('val-sorties-copine').textContent = sortiesCopine + ' €';
 
       // ==========================================
-      // 1. CALCULS URSSAF & FISCALITÉ (2026)
+      // 1. COTISATIONS MICRO : 2026 - taux 2026 URSSAF + CFP
       // ==========================================
-      let tauxURSSAF = 0;
-      let partRetenueCAF = 0;
-      let tauxVFL = 0;
-
-      if (microType === 'bnc') {
-        partRetenueCAF = 0.66; // 34% d'abattement
-        tauxVFL = 0.022; // 2.2%
-        if (acreOption === 'acre_2026') tauxURSSAF = 0.1935; // Réforme juillet 2026 (-25%)
-        else if (acreOption === 'acre_50') tauxURSSAF = 0.129; // Ancien taux (-50%)
-        else tauxURSSAF = 0.258; // Taux plein 2026 (25.6% + 0.2% CFP)
-      } else {
-        partRetenueCAF = 0.50; // 50% d'abattement BIC
-        tauxVFL = 0.017; // 1.7%
-        if (acreOption === 'acre_2026') tauxURSSAF = 0.1605; // -25%
-        else if (acreOption === 'acre_50') tauxURSSAF = 0.107; // -50%
-        else tauxURSSAF = 0.214; // Taux plein (21.2% + 0.2% CFP)
-      }
-
-      const cotisationsURSSAF = Math.round(caBrut * tauxURSSAF);
-      const revenuNetCAF_Micro = Math.round(caBrut * partRetenueCAF);
-
-      // Calcul de l'impôt sur le revenu
-      let impotMensuel = 0;
-      if (impotOption === 'vfl') {
-        impotMensuel = Math.round(caBrut * tauxVFL);
-      } else {
-        // Au barème : salaire apprenti et missions militaires sont exonérés
-        const revenuImposableAnnuel = revenuNetCAF_Micro * 12;
-        if (revenuImposableAnnuel > 17438) {
-          // Tranche à 11% avec décote simplifiée
-          impotMensuel = Math.round(((revenuImposableAnnuel - 17438) * 0.11) / 12);
-        } else {
-          impotMensuel = 0;
-        }
-      }
-
-      const netPocheMicro = Math.max(0, caBrut - cotisationsURSSAF - impotMensuel);
+      const microFrais = safeAmount(document.getElementById('input-micro-frais').value);
+      const provisionIRBar = safeAmount(document.getElementById('input-micro-ir').value);
+      const cfpBic = document.getElementById('sel-cfp-bic').value;
+      const tauxBaseSocial = microType === 'bnc' ? 0.256 : 0.212;
+      const tauxCFP = microType === 'bnc' ? 0.002 : (cfpBic === 'artisanat' ? 0.003 : 0.001);
+      const acreFacteur = acreOption === 'acre_2026' ? 0.75 : (acreOption === 'acre_50' ? 0.50 : 1);
+      const tauxURSSAF = tauxBaseSocial * acreFacteur + tauxCFP;
+      const tauxVFL = microType === 'bnc' ? 0.022 : 0.017;
+      const partRetenueCAF = microType === 'bnc' ? 0.66 : 0.50;
+      const cotisationsURSSAF = Math.round(caBrut * tauxURSSAF * 100)/100;
+      const revenuNetCAF_Micro = Math.round(caBrut * partRetenueCAF*100)/100;
+      // L'impôt au barème exige le revenu fiscal du foyer et le statut de l'apprenti.
+      // SANS saisie d'une provision, le calcul IR ne se prétend PAS exact.
+      const impotMensuel = impotOption === 'vfl'
+        ? Math.round(caBrut * tauxVFL * 100)/100 : provisionIRBar;
+      // Le résultat micro peut être négatif si les frais > chiffre d'affaires :
+      // ne jamais cacher ce déficit de trésorerie dans le budget personnel.
+      const netPocheMicro = Math.round((caBrut - cotisationsURSSAF - impotMensuel - microFrais)*100)/100;
 
       // ==========================================
-      // 2. CALCUL PRIME D'ACTIVITÉ 2026 (Décret 2026-222)
+      // 2. PRIME D'ACTIVITÉ : ordre de grandeur NON OFFICIEL, hors budget
       // ==========================================
       const sasProjection = calculateSasProjection();
       const additionalExpensesTotal = getAdditionalExpensesTotal();
       const revProToi = salaireToi + revenuNetCAF_Micro + sasProjection.totalSalaryBeforePAS;
       const revProCopine = isCouple ? revenuCopine : 0;
       const revFoyerCAF = revProToi + revProCopine;
-
-      // Condition de plancher étudiant (1 144,21 €) levée en Post-Master
       let isEligiblePrime = true;
-      if (!isPostMaster && revProToi < 1144.21 && revProCopine === 0) {
-        isEligiblePrime = false;
-      }
-
-      // Bonification individuelle (Revalorisation avril 2026 : Max 240,63 €)
+      if (!isPostMaster && revProToi < 1144.21 && revProCopine === 0) isEligiblePrime = false;
+      // CAF IT 2026-080 : 59 et 138 heures de SMIC brut, 709,18 € et 1658,76 €.
       function calcBonif(revPro) {
-        if (revPro <= 726.29) return 0;
-        if (revPro >= 1698.78) return 240.63;
-        return 240.63 * ((revPro - 726.29) / (1698.78 - 726.29));
+        if (revPro <= 709.18) return 0;
+        if (revPro >= 1658.76) return 240.63;
+        return 240.63 * (revPro - 709.18) / (1658.76 - 709.18);
       }
-
       const bonifToi = calcBonif(revProToi);
       const bonifCopine = isCouple ? calcBonif(revProCopine) : 0;
-
       const montantForfaitaire = isCouple ? 957.42 : 638.28;
       const forfaitLogement = isCouple ? 153.19 : 76.59;
       const fractionRevenus = 0.5985 * revFoyerCAF;
-
-      let primeBrute = montantForfaitaire + fractionRevenus + bonifToi + bonifCopine - revFoyerCAF - forfaitLogement;
-      let primeActivite = 0;
-      if (isEligiblePrime && primeBrute >= 15) {
-        primeActivite = Math.round(primeBrute);
-      }
-
-      // ==========================================
-      // 3. CALCUL APL & MOBILI-JEUNE (Toulouse Z2)
-      // ==========================================
-      const mobiliJeune = isPostMaster ? 0 : 100;
-
-      // Base APL dégressive selon les revenus déclarés
-      let baseAPL = isCouple ? 230 : 190;
-      if (isPostMaster && revFoyerCAF === 0) baseAPL = isCouple ? 310 : 260;
-
-      let aplCalculee = 0;
-      if (!isPostMaster) {
-        // En alternance : salaire d'apprenti pris en compte avec abattement
-        const impactCAF = (Math.max(0, salaireToi - 1170) * 0.10) + (revenuNetCAF_Micro * 0.12) + (revProCopine * 0.10) + (sasProjection.totalSalaryNet * 0.11);
-        aplCalculee = Math.max(0, Math.round(baseAPL - impactCAF));
-      } else {
-        // Post-Master : dégressivité directe sur les revenus du foyer
-        const impactCAF = (revFoyerCAF * 0.11);
-        aplCalculee = Math.max(0, Math.round(baseAPL - impactCAF));
-      }
+      const primeBrute = montantForfaitaire + fractionRevenus + bonifToi + bonifCopine - revFoyerCAF - forfaitLogement;
+      const primeEstimate = isEligiblePrime && primeBrute >= 15 ? Math.round(primeBrute) : 0;
+      // Les aides *confirmées* seulement sont comptabilisées.
+      const primeActivite = safeAmount(document.getElementById('input-prime-verifiee').value);
+      const aplCalculee = safeAmount(document.getElementById('input-apl-verifiee').value);
+      const mobiliDemande = safeAmount(document.getElementById('input-mobili-verifiee').value);
+      const mobiliJeune = isPostMaster ? 0 : Math.min(100,mobiliDemande,Math.max(0,loyer-aplCalculee));
 
       // ==========================================
-      // 4. SYNTHÈSE TOTALE DES BUDGETS
+      // 3. APL : impossible à déterminer sans ressources N-12 et données logement.
+      // Montant issu de la décision CAF à saisir ci-dessus. Pas de formule fictive.
+      // ==========================================
+      
+      // ==========================================
+      // 4. SYNTHÈSE TOTALE DES BUDGETS// 4. SYNTHÈSE TOTALE DES BUDGETS
       // ==========================================
       const totalAides = primeActivite + aplCalculee + mobiliJeune;
       const totalRecettesNet = salaireToi + netPocheMicro + missionsToi + (isCouple ? revenuCopine : 0) + sasProjection.totalSalaryNet + totalAides;
@@ -904,7 +864,7 @@
       // Sauvegarde état
       currentCalc = {
         totalRecettesNet, totalAides, totalDepenses, resteAVivre,
-        salaireToi, caBrut, cotisationsURSSAF, impotMensuel, netPocheMicro,
+        salaireToi, caBrut, cotisationsURSSAF, impotMensuel, netPocheMicro, microFrais, provisionIRBar, primeEstimate,
         missionsToi, revenuCopine, primeActivite, aplCalculee, mobiliJeune,
         loyer, coursesToi, facturesToi, sortiesToi, moto, abosToi,
         coursesCopine, facturesCopine, sortiesCopine, isCouple, isPostMaster,
@@ -935,31 +895,29 @@
       }
 
       // Mise à jour du panneau explicatif
-      document.getElementById('detail-taux-urssaf').textContent = (tauxURSSAF * 100).toFixed(1) + '%';
-      document.getElementById('detail-urssaf-calc').textContent = `CA ${caBrut} € - URSSAF (${cotisationsURSSAF} €) = ${caBrut - cotisationsURSSAF} € net pro.`;
-      document.getElementById('detail-impot-calc').textContent = (impotOption === 'vfl') 
-        ? `Option VFL : ${impotMensuel} € prélevés (${(tauxVFL*100).toFixed(1)}%).` 
-        : (impotMensuel === 0 ? 'Barème : 0 € d\'impôt (Revenu imposable sous 17 438 € net).' : `Barème : ~${impotMensuel} € / mois d'impôt.`);
-      document.getElementById('detail-caf-retenu').textContent = revenuNetCAF_Micro + ' €';
-
+      document.getElementById('detail-taux-urssaf').textContent = (tauxURSSAF * 100).toFixed(2) + '%';
+      document.getElementById('detail-urssaf-calc').textContent =
+        'CA '+euro(caBrut)+' - cotisations + CFP '+euro(cotisationsURSSAF)+' - frais pro '+euro(microFrais)+' = '+euro(caBrut-cotisationsURSSAF-microFrais)+' avant IR. ACRE : '+(acreOption==='none'?'aucune appliquée (par prudence)':acreOption==='acre_2026'?'taux minoré de 25 % des cotisations':'taux historique minoré de 50 %')+'.';
+      document.getElementById('detail-impot-calc').textContent = impotOption === 'vfl'
+        ? 'VFL : '+euro(impotMensuel)+' (taux '+(tauxVFL*100).toFixed(1)+' % du CA), uniquement si éligible et option validée.'
+        : 'IR au barème : provision saisie '+euro(impotMensuel)+' / mois. Zéro par défaut n’implique pas une absence d’impôt. Vérifier le foyer fiscal.';
+      document.getElementById('detail-caf-retenu').textContent = euro(revenuNetCAF_Micro)+' (hypothèse fiscale)';
       const primeStatusBadge = document.getElementById('detail-prime-status');
-      if (!isEligiblePrime) {
-        primeStatusBadge.textContent = 'Sous plancher 1 144 €';
-        primeStatusBadge.className = 'font-mono text-[11px] bg-rose-500/20 text-rose-300 px-1.5 rounded';
-      } else if (primeActivite === 0) {
-        primeStatusBadge.textContent = 'Plafond dépassé (0 €)';
-        primeStatusBadge.className = 'font-mono text-[11px] bg-slate-500/20 text-slate-300 px-1.5 rounded';
-      } else {
-        primeStatusBadge.textContent = 'Éligible';
-        primeStatusBadge.className = 'font-mono text-[11px] bg-emerald-500/20 text-emerald-300 px-1.5 rounded';
-      }
-
-      document.getElementById('detail-prime-val').textContent = primeActivite + ' € / mois';
-      document.getElementById('detail-prime-formule').textContent = `Forfait ${montantForfaitaire}€ + Bonification (${Math.round(bonifToi + bonifCopine)}€) - Forfait APL (${forfaitLogement}€) - Ressources.`;
-      document.getElementById('detail-apl-calc').textContent = `Loyer plafonné. Aide logement versée : ${aplCalculee} €/mois.`;
-      document.getElementById('detail-mobili-val').textContent = mobiliJeune + ' €';
+      primeStatusBadge.textContent = 'Non certifié CAF';
+      primeStatusBadge.className = 'font-mono text-[11px] bg-amber-500/20 text-amber-200 px-1.5 rounded';
+      document.getElementById('detail-prime-val').textContent = euro(primeActivite) + ' / mois (saisi)';
+      document.getElementById('detail-prime-formule').textContent =
+        'Illustration théorique '+euro(primeEstimate)+' / mois (NON incluse) : forfait '+euro(montantForfaitaire)+
+        ' + 59,85 % revenus d’activité + bonification '+euro(bonifToi+bonifCopine)+
+        ' - ressources - forfait logement '+euro(forfaitLogement)+
+        '. Ne remplace pas le trimestre CAF, le montant net social ni les autres revenus.';
+      document.getElementById('detail-apl-calc').textContent = 'APL/ALS/ALF comptabilisée : '+euro(aplCalculee)+
+        ' / mois (montant CAF saisi). Aucun calcul de droit automatique : 12 derniers mois et données du logement requis.';
+      document.getElementById('detail-mobili-val').textContent = euro(mobiliJeune);
+      document.getElementById('badge-mobili-montant').textContent = euro(mobiliJeune)+' / mois si accordée';
 
       // ==========================================
+      // 5. RENDU DU DIAGRAMME SANKEY      // ==========================================
       // 5. RENDU DU DIAGRAMME SANKEY (PLOTLY)
       // ==========================================
       renderCustomSummary(sasProjection, additionalExpensesTotal);
@@ -997,7 +955,7 @@
         `Prime d'Activité (${c.primeActivite}€)`,
         `APL Logement (${c.aplCalculee}€)`,
         `Mobili-Jeune (${c.mobiliJeune}€)`,
-        `URSSAF & Fiscalité (${c.cotisationsURSSAF + c.impotMensuel}€)`,
+        `URSSAF + impôt (${euro(c.cotisationsURSSAF + c.impotMensuel)})`,
         `Budget Net Foyer (${c.totalRecettesNet}€)`,
         `Loyer (${c.loyer}€)`,
         `Courses (${c.coursesToi + c.coursesCopine}€)`,
@@ -1243,15 +1201,17 @@
         thresholdBasic: basic, thresholdUpper: upper
       };
     }
-    function estimatedSalaryTaxes(grossMonthly, warnings) {
-      // Barème progressif métropole publié sur Service Public pour les salaires 2025
-      // (taxe payable en 2026). Pour les salaires 2026, résultat à CONFIRMER.
+    function estimatedSalaryTaxes(grossMonthly) {
+      // Progressivité : sur les tranches, on applique 4,25 % supplémentaires au
+      // taux normal pour atteindre 8,5 %, puis 9,35 % supplémentaires pour 13,6 %.
+      // Seuils salaires 2025 publiés pour taxe payée en 2026 ; une simulation de
+      // salaires payés en 2026 reste une estimation tant que les seuils ne sont pas confirmés.
       const grossAnnual = grossMonthly * 12;
-      const tax = Math.min(grossAnnual, 9147) * .0425 +
-        Math.max(0, Math.min(grossAnnual, 18258) - 9147) * .085 +
-        Math.max(0, grossAnnual - 18258) * .136;
-      if (tax <= 1200) return 0;
-      if (tax <= 2040) return Math.max(0, tax - .75 * (2040 - tax));
+      const tax = grossAnnual * .0425 +
+        Math.max(0,Math.min(grossAnnual,18258)-9147) * .0425 +
+        Math.max(0,grossAnnual-18258) * .0935;
+      if(tax < 1200) return 0;
+      if(tax <= 2040) return Math.max(0,tax - .75*(2040-tax));
       return tax;
     }
     function calculateSasProjection() {
@@ -1282,10 +1242,19 @@
 
         // La taxe sur salaires peut s'appliquer lorsque l'entreprise n'est pas assujettie à la TVA.
         // Cas simplifié : 100 % rémunération assujettie, hors réductions sectorielles et régimes spéciaux.
-        const taxSalariesAnnual = vat.taxable || salaryNet === 0
-          ? 0 : estimatedSalaryTaxes(grossSalary, warnings);
-        if (!vat.taxable && salaryNet > 0)
-          warnings.push('Taxe sur les salaires : estimation selon un régime 100 % hors TVA, barème à valider pour les rémunérations 2026 et la situation réelle.');
+        // Une entreprise dont le CA N−1 est inférieur ou égal aux seuils de
+        // franchise de TVA est normalement exonérée de taxe sur les salaires.
+        const taxeSalaireExoneree = createdYear === 2026 ||
+          (priorCa !== null && priorCa <= vat.thresholdBasic);
+        const salaireAssujettiPossible = !vat.taxable && salaryNet > 0 && !taxeSalaireExoneree;
+        const taxSalariesAnnual = salaireAssujettiPossible && priorCa !== null
+          ? estimatedSalaryTaxes(grossSalary) : 0;
+        if(taxeSalaireExoneree && salaryNet > 0 && !vat.taxable)
+          warnings.push('Taxe sur les salaires : exonération présumée sur le CA N−1 (à confirmer pour ton activité et l’assujettissement réel à la TVA).');
+        if(salaireAssujettiPossible && priorCa === null)
+          warnings.push('Taxe sur les salaires NON chiffrée : CA 2025 absent. Le solde de la société peut être surestimé.');
+        if(taxSalariesAnnual > 0)
+          warnings.push('Taxe sur les salaires : estimation simplifiée sur salaire brut, sans assiette CSG détaillée ni prorata d’assujettissement. Seuils 2026 à vérifier.');
 
         // CFE en 2026 : création 2026 = 0 ; création 2025 = base réduite 50 % ;
         // exonération sur CA N−2 <= 5000 € si connu, sinon montant non vérifiable.
