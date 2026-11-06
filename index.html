@@ -1377,6 +1377,29 @@
       return mode==='paid'?35:mode==='custom'?safeAmount(company.capitalDepositFee):0;
     }
 
+
+    function estimateCVAE2026(company,annualCA,externalCosts,warning) {
+      if(annualCA<=500000) return {annual:0,base:0,rate:0,declared:null,estimated:false};
+      // Service-Public, barème 2026/27 : 0,094 %, 0,263 % puis 0,28 %.
+      // La valeur ajoutée est une donnée COMPTABLE, pas le bénéfice.
+      let rate=0;
+      if(annualCA<=3000000) rate=.00094*(annualCA-500000)/2500000;
+      else if(annualCA<=10000000) rate=.00094+.00169*(annualCA-3000000)/7000000;
+      else if(annualCA<=50000000) rate=.00263+.00019*(annualCA-10000000)/40000000;
+      else rate=.0028;
+      const entered=knownAmount(company.valueAddedAnnual);
+      const cap=annualCA*(annualCA<=7600000?.8:.85);
+      const estimated=entered===null;
+      const base=Math.max(0,Math.min(cap,estimated?annualCA-externalCosts:entered));
+      let tax=base*rate;
+      if(annualCA<2000000)tax=Math.max(0,tax-188);
+      if(tax<=63)tax=0;
+      const total=tax*1.0923; // taxe additionnelle CCI indicative, sauf exonérations
+      if(estimated) warning.push('CVAE : valeur ajoutée fiscale non fournie. Base approchée à partir du CA et des charges externes : estimation NON opposable.');
+      warning.push('CVAE : calcul basé sur le barème 2026, avec dégrèvement de 188 € si CA inférieur à 2 M€ et taxe additionnelle CCI 9,23 % ; exonérations et réductions particulières à vérifier.');
+      return {annual:total,base:base,rate:rate,declared:entered,estimated:estimated};
+    }
+
     function calculateSasProjection() {
       const companies = customBudget.companies.map(function(company) {
         const warnings = [];
@@ -1483,9 +1506,25 @@
         const annualIncome = 12 * ca;
         const yearlyOperating = 12 * (charges + services.monthlyTotal) + services.annualFiling;
         const yearlyPayroll = 12 * (costSalary + staffCostMonthly);
+        // Comptabilité, logiciels et domiciliation peuvent être soumis à TVA,
+        // contrairement à la plupart des services bancaires et assurances.
+        const serviceVATBase=services.accountantMonthly+services.domiciliationMonthly;
+        const serviceVAT=serviceVATBase*.20;
+        const nonRecoverableServiceVAT=serviceVAT*(12-vat.monthsTaxable);
+        const recoveredServiceVAT=serviceVAT*vat.monthsTaxable/12;
+        vat.inputVAT+=serviceVAT;
+        vat.recoveredVAT+=recoveredServiceVAT;
+        vat.nonRecoverableVAT+=nonRecoverableServiceVAT/12;
+        vat.vatToPay=vat.outputVAT-vat.recoveredVAT;
+        vat.vatYear=vat.vatToPay*12;
+        if(serviceVATBase>0)
+          warnings.push('TVA sur les prestations (comptabilité et domiciliation) : 20 % supposés, récupérable seulement pendant les mois imposables. Vérifier les factures TTC/HT.');
         const yearlyNonRecoverableVAT = vat.nonRecoverableVAT * 12;
+        const cv=estimateCVAE2026(company,annualIncome,12*(charges+services.monthlyTotal),warnings);
+        const cvaeAnnual=cv.annual;
         const annualExpenses = yearlyOperating + yearlyPayroll + yearlyNonRecoverableVAT +
-          cfeAnnual + taxSalariesAnnual + taxeApprentissageAnnual + formationCashCost + 12 * otherTaxesMonthly;
+          cfeAnnual + taxSalariesAnnual + taxeApprentissageAnnual + cvaeAnnual +
+          formationCashCost + 12 * otherTaxesMonthly;
         const resultBeforeISAnnual = annualIncome - annualExpenses;
 
         // IS progressif si les trois conditions légales sont remplies.
@@ -1544,11 +1583,12 @@
           cfeAnnual: cfeAnnual, cfeReason: cfeReason,
           cfeMode:cfeMode,cfeRangeLow:cfeRangeLow,cfeRangeHigh:cfeRangeHigh,
           vat: vat, taxSalariesAnnual: taxSalariesAnnual, nonRecoverableVATMonthly: vat.nonRecoverableVAT,
+          cvaeAnnual:cvaeAnnual,cvaeBase:cv.base,cvaeRate:cv.rate,cvaeEstimated:cv.estimated,
           resultBeforeISAnnual: resultBeforeISAnnual, yearlyOperating: yearlyOperating,
           yearlyPayroll: yearlyPayroll, annualExpenses: annualExpenses,
           preTax: resultBeforeISAnnual / 12, taxableAnnual: taxableAnnual,
           taxAnnual: taxAnnual, socialISAnnual:socialISAnnual, afterTax: afterTaxAnnual / 12, afterTaxAnnual: afterTaxAnnual,
-          totalTaxesAndSocialAnnual:taxAnnual+socialISAnnual+cfeAnnual+taxSalariesAnnual+taxeApprentissageAnnual+
+          totalTaxesAndSocialAnnual:taxAnnual+socialISAnnual+cfeAnnual+cvaeAnnual+taxSalariesAnnual+taxeApprentissageAnnual+
             socialContrib*12+staffEmployerContrib*12+otherTaxesMonthly*12,
           reserveAnnual: reserveAnnual, distributionPct: distributionPct,
           dividendGrossMonth: dividendGrossMonth, dividendTaxMonth: dividendTaxMonth,
@@ -1596,7 +1636,7 @@
         premisesMode:'home',domiciliationMonthly:0,companyVehicles:0,
         capitalDepositMode:'free',capitalDepositFee:0,formationAdvisorFee:0,
         filingMode:'auto',filingAnnualFee:44.14,staffCount:0,staffGrossMonthly:0,
-        otherTaxesAnnual: 0, distributionPct: 0, cashStart: 0
+        otherTaxesAnnual: 0, valueAddedAnnual:null, distributionPct: 0, cashStart: 0
       });
       saveCustomBudget();
       renderCustomForms();
@@ -1733,7 +1773,8 @@
           '<p class="sm:col-span-2 xl:col-span-4 mt-1 font-semibold text-xs text-indigo-900">Salariés éventuels (hors dirigeant)</p>' +
           numberField('Nombre de salariés','staffCount',company.staffCount===undefined?0:company.staffCount,1,'Sans salariés, salaire et mutuelle employeur = 0 €') +
           numberField('Salaire brut par salarié (€ / mois)','staffGrossMonthly',company.staffGrossMonthly===undefined?0:company.staffGrossMonthly,100,'Coût employeur estimé en plus : 40 % du brut + 30 €/mois de mutuelle par salarié') +
-          numberField('Autres taxes annuelles connues (€)','otherTaxesAnnual',company.otherTaxesAnnual,50,'Taxe sectorielle / autres taxes : ne pas doubler la CFE') +
+          optionalNumber('Valeur ajoutée fiscale annuelle (€) — CVAE','valueAddedAnnual',company.valueAddedAnnual,'Vide = estimation depuis CA et charges pour CA > 500 000 €/an ; saisir la vraie valeur ajoutée de la liasse fiscale si connue.') +
+          numberField('Autres taxes annuelles connues (€)','otherTaxesAnnual',company.otherTaxesAnnual,50,'Taxe sectorielle / autres taxes : ne pas doubler la CFE ni la CVAE') +
           numberField('Distribution du bénéfice (%)','distributionPct',company.distributionPct,5,'Dividendes théoriques après IS et réserve ; non ajoutés au budget personnel') +
           '</div></details>' +
           '<p class="text-[11px] text-amber-900 bg-amber-50 p-2 rounded-lg">Hypothèse de projection : 12 mois de CA constant, établissement en métropole et régime à l’IS. Les frais bancaires/comptables/assurances automatiques sont facultatifs, pas des taxes. La CFE automatique suppose un taux communal de 30 % modifiable. La date réelle de création et de bascule TVA peut modifier le résultat.</p>' +
@@ -1836,7 +1877,7 @@
       else if (field === 'insurancePlan') item.insurancePlan = ['sector','none','rc','regulated','building','custom'].includes(event.target.value) ? event.target.value : 'sector';
       else if (field === 'filingMode') item.filingMode = event.target.value === 'custom' ? 'custom' : 'auto';
       else if (field === 'capitalDepositMode') item.capitalDepositMode = ['free','paid','custom'].includes(event.target.value) ? event.target.value : 'free';
-      else if (field === 'previousCA' || field === 'previous2CA') item[field] = event.target.value === '' ? null : safeAmount(event.target.value);
+      else if (field === 'previousCA' || field === 'previous2CA' || field === 'valueAddedAnnual') item[field] = event.target.value === '' ? null : safeAmount(event.target.value);
       else if (field === 'createdYear') item.createdYear = Math.round(between(event.target.value, 1900, 2026));
       else if (field === 'distributionPct' || field === 'ownersIndividualsPct') item[field] = between(event.target.value, 0, 100);
       else if (field === 'pasRate') item.pasRate = between(event.target.value, 0, 45);
