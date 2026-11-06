@@ -678,7 +678,14 @@
           <p class="text-xs text-slate-500 mt-1">Simule plusieurs sociétés. Seuls les salaires nets du dirigeant entrent dans ton budget personnel ; le chiffre d'affaires et les bénéfices restent dans les sociétés.</p>
           <a class="inline-flex items-center gap-1 mt-2 text-xs font-semibold text-indigo-700 underline" href="https://github.com/cosscoll/simulations.logement/blob/main/SASU_CALCULS_AUTOMATIQUES_2026.md" target="_blank" rel="noopener noreferrer">Voir les hypothèses, les tarifs 2026 et les obligations de chaque SASU</a>
         </div>
-        <button type="button" onclick="addSasCompany()" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs">+ Ajouter une SAS / SASU</button>
+        <div class="flex flex-wrap gap-2">
+          <button type="button" onclick="addSasCompany('ia')" class="px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs">+ SASU IA</button>
+          <button type="button" onclick="addSasCompany('ucp')" class="px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-700 text-white font-semibold text-xs">+ SASU UCP</button>
+          <button type="button" onclick="addSasCompany()" class="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold text-xs">+ Autre SASU</button>
+        </div>
+      </div>
+      <div class="rounded-xl border border-indigo-100 bg-indigo-50 p-3 text-xs text-indigo-950 mb-3">
+        <strong>Budgets de maintien et de pérennisation 2026.</strong> Les deux boutons créent des profils préremplis, avec coûts fixes, frais de paiement, et réserves de sécurité. Les prix sont des hypothèses de budget, pas des devis. Tes simulations précédentes ne sont pas modifiées.
       </div>
       <div id="sas-companies-list" class="grid grid-cols-1 gap-4"></div>
       <div id="sas-companies-summary" aria-live="polite"></div>
@@ -1824,9 +1831,10 @@
       renderCustomForms();
       updateSimulation();
     }
-    function addSasCompany() {
+    function addSasCompany(profile) {
       if (customBudget.companies.length >= 25) return;
-      customBudget.companies.push({
+      const company={
+
         id: customNextId++, name: 'SASU ' + (customBudget.companies.length + 1),
         form: 'sasu', createdYear: 2026, ca: 0, charges: 0,
         salaryNet: 0, pasRate: 0,
@@ -1842,7 +1850,9 @@
         filingMode:'auto',filingAnnualFee:44.14,payrollRegion:'normal',staffCount:0,staffGrossMonthly:0,
         otherTaxesAnnual: 0, valueAddedAnnual:null, businessProfile:'none',
         distributionPct: 0, cashStart: 0
-      });
+      };
+      if(profile==='ia'||profile==='ucp')applySasuBusinessProfile(company,profile);
+      customBudget.companies.push(company);
       saveCustomBudget();
       renderCustomForms();
       updateSimulation();
@@ -1920,7 +1930,9 @@
           '<select data-field="createdYear" class="block w-full bg-white border border-slate-200 rounded-xl p-2.5 text-sm">' + yearOptions + '</select>' +
           '<span class="block text-[10px] text-slate-500 font-normal">Détermine les formalités et l’exonération de CFE.</span></label>' +
           numberField('CA HT moyen par mois','ca',company.ca,100,'Recettes hors TVA, supposées constantes sur 12 mois') +
-          numberField('Charges professionnelles HT / mois','charges',company.charges,50,'Achats, logiciels, déplacements, loyer… sans compter les coûts séparés ci-dessous') +
+          numberField('Charges professionnelles HT / mois','charges',company.charges,50,'Achats, logiciels, déplacements, loyer… sans compter les coûts séparés ci-dessous. Ne pas redéclarer les charges du budget numérique.') +
+          selectCompany('Budget de pérennisation','businessProfile',company.businessProfile||'none',
+            [['none','Aucun budget numérique supplémentaire'],['ia','SASU IA : formation / produits numériques'],['ucp','SASU UCP : marketplace BTP'],['custom','Personnalisé']],'Les budgets IA et UCP remplissent les frais complémentaires automatiquement. Réserves de sécurité ≠ charges fiscales.') +
           selectCompany('Comptabilité : qui la réalise ?','accountingPlan',company.accountingPlan || 'self',
             [['self','Moi-même (0 € de prestation)'],['software','Logiciel (18 €/mois estimés)'],['accountant','Expert-comptable (95 €/mois estimés)'],['custom','Tarif personnalisé dans les options']],'La tenue des comptes reste obligatoire même si tu ne prends pas de comptable. Les frais de cette sélection sont déduits automatiquement.') +
           selectCompany('Mode de dépenses SASU','operatingCostMode',company.operatingCostMode || 'auto',
@@ -1983,6 +1995,28 @@
           optionalNumber('Valeur ajoutée fiscale annuelle (€) — CVAE','valueAddedAnnual',company.valueAddedAnnual,'Vide = estimation depuis CA et charges pour CA > 500 000 €/an ; saisir la vraie valeur ajoutée de la liasse fiscale si connue.') +
           numberField('Autres taxes annuelles connues (€)','otherTaxesAnnual',company.otherTaxesAnnual,50,'Taxe sectorielle / autres taxes : ne pas doubler la CFE ni la CVAE') +
           numberField('Distribution du bénéfice (%)','distributionPct',company.distributionPct,5,'Dividendes théoriques après IS et réserve ; non ajoutés au budget personnel') +
+          '</div></details>' +
+
+          '<details class="rounded-xl border border-slate-200 bg-white p-3">' +
+          '<summary class="font-semibold text-sm text-indigo-800 cursor-pointer">Maintien du site et pérennisation : détails de mon budget annuel</summary>' +
+          '<p class="text-[11px] text-slate-500 mt-2 mb-3">Tarifs de planification en euros HT. Les coûts réellement payés réduisent le bénéfice imposable ; les réserves de trésorerie sont séparées. Dans UCP, ne jamais saisir le montant des chantiers comme CA si la société ne les encaisse pas.</p>' +
+          '<div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">' +
+          numberField('Hébergement (€ / mois)','hostingMonthly',company.hostingMonthly||0,5,'Vercel Pro ou autre service commercial ; facture réelle à vérifier') +
+          numberField('Base de données (€ / mois)','databaseMonthly',company.databaseMonthly||0,5,'Supabase Pro ou équivalent ; coût réel variable avec l’usage') +
+          numberField('Nom de domaine et messagerie (€ / mois)','domainEmailMonthly',company.domainEmailMonthly||0,5,'Renouvellement du domaine et boîtes email') +
+          numberField('Emails transactionnels (€ / mois)','transactionalEmailMonthly',company.transactionalEmailMonthly||0,5,'Récépissés, notifications, codes de confirmation ; 0 si forfait gratuit suffisant') +
+          numberField('Sécurité / sauvegardes (€ / mois)','securityMonthly',company.securityMonthly||0,5,'Surveillance, copies de restauration, protections non incluses dans l’hébergement') +
+          numberField('Outils / vidéos / monitoring (€ / mois)','businessToolsMonthly',company.businessToolsMonthly||0,5,'Modules de formation pour IA, monitoring et maintenance produit pour UCP') +
+          numberField('Publicité et prospection (€ / mois)','marketingMonthly',company.marketingMonthly||0,10,'Budget facultatif d’acquisition ; frais réels si campagnes activées') +
+          numberField('Support et modération (€ / mois)','supportMonthly',company.supportMonthly||0,10,'Externalisation seulement ; 0 € si pris en charge soi-même') +
+          numberField('Juridique / conformité (€ / an)','complianceAnnual',company.complianceAnnual||0,50,'Budget de conseil, CGV/CGU, RGPD ; ce n’est pas une taxe imposée') +
+          numberField('Réserve maintenance / incidents (€ / mois)','maintenanceReserveMonthly',company.maintenanceReserveMonthly||0,20,'Prudence de trésorerie, non déductible tant que non dépensée') +
+          numberField('Marge de sécurité (%)','contingencyPct',company.contingencyPct||0,1,'Sur dépenses de fonctionnement : trésorerie, pas un coût déductible') +
+          numberField('Provision CFE prochaine année (€ / an)','futureCfeReserveAnnual',company.futureCfeReserveAnnual||0,50,'Si créée en 2026 : budget de trésorerie 2027, en attendant montant fiscal local') +
+          numberField('Part du CA encaissée par carte (%)','cardSalesPct',company.cardSalesPct===undefined?100:company.cardSalesPct,5,'100 % si tout passe par Stripe ; 0 % si aucune transaction carte') +
+          numberField('Panier moyen des transactions (€)','averageTicket',company.averageTicket||0,10,'Détermine le nombre moyen de paiements et donc les frais fixes par transaction') +
+          numberField('Commission carte (%)','cardFeePct',company.cardFeePct===undefined?1.5:company.cardFeePct,.1,'Tarif de référence Stripe France carte EEE standard : 1,5 %') +
+          numberField('Frais fixes par transaction (€)','cardFeeFixed',company.cardFeeFixed===undefined?.25:company.cardFeeFixed,.05,'Tarif de référence Stripe : 0,25 € ; Connect peut ajouter ses frais') +
           '</div></details>' +
           '<p class="text-[11px] text-amber-900 bg-amber-50 p-2 rounded-lg">Hypothèse de projection : 12 mois de CA constant, établissement en métropole et régime à l’IS. Les frais bancaires/comptables/assurances automatiques sont facultatifs, pas des taxes. La CFE automatique suppose un taux communal de 30 % modifiable. La date réelle de création et de bascule TVA peut modifier le résultat.</p>' +
           '<p class="text-[11px] text-slate-500">La rémunération et les impôts sont recalculés automatiquement. Les taux sociaux précis, la CFE locale et certains régimes fiscaux nécessitent des justificatifs.</p>' +
@@ -2114,6 +2148,7 @@
       else if (field === 'bankPlan') item.bankPlan = ['free','economy','traditional','custom'].includes(event.target.value) ? event.target.value : 'economy';
       else if (field === 'accountingPlan') item.accountingPlan = ['self','software','accountant','custom'].includes(event.target.value) ? event.target.value : 'self';
       else if (field === 'insurancePlan') item.insurancePlan = ['sector','none','rc','regulated','building','custom'].includes(event.target.value) ? event.target.value : 'sector';
+      else if(field==='businessProfile') {applySasuBusinessProfile(item,event.target.value);renderCustomForms();}
       else if (field === 'filingMode') item.filingMode = event.target.value === 'custom' ? 'custom' : 'auto';
       else if (field === 'capitalDepositMode') item.capitalDepositMode = ['free','paid','custom'].includes(event.target.value) ? event.target.value : 'free';
       else if (field === 'payrollRegion') item.payrollRegion = event.target.value === 'alsace' ? 'alsace' : 'normal';
@@ -2125,6 +2160,10 @@
       else if (field === 'cfeLocalRate') item.cfeLocalRate = between(event.target.value, 0, 100);
       else if (field === 'staffCount') item.staffCount = Math.floor(between(event.target.value, 0, 50));
       else if (field === 'companyVehicles') item.companyVehicles = Math.floor(between(event.target.value, 0, 20));
+      else if(SASU_DIGITAL_FIELDS.includes(field)) {
+        item[field]=safeAmount(event.target.value);
+        if(item.businessProfile==='ia'||item.businessProfile==='ucp')item.businessProfile='custom';
+      }
       else item[field] = safeAmount(event.target.value);
       saveCustomBudget();
       updateSimulation();
