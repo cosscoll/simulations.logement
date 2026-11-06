@@ -856,6 +856,7 @@
 
       // Mise à jour de l'affichage des KPIs
       document.getElementById('kpi-recettes').textContent = euro(totalRecettesNet);
+      document.getElementById('kpi-recettes-sub').textContent = sasProjection.companies.length ? 'Salaire + micro + SAS (après PAS) + missions + aides estimées' : 'Salaire + micro + missions + aides estimées';
       document.getElementById('kpi-aides').textContent = euro(totalAides);
       document.getElementById('kpi-aides-sub').textContent = `Prime : ${primeActivite}€ | APL : ${aplCalculee}€ | Mobili : ${mobiliJeune}€`;
       document.getElementById('kpi-depenses').textContent = euro(totalDepenses);
@@ -1556,30 +1557,49 @@
       updateSimulation();
     }
     function exportCustomCSV() {
-      const rows = [['Type','Nom','Champ','Valeur','Unité']];
+      const rows = [['Type','Nom','Champ','Valeur','Unité','Fiabilité / remarque']];
       customBudget.expenses.forEach(function(e) {
-        rows.push(['Dépense',e.name,'Montant',safeAmount(e.amount),e.period === 'annual' ? '€/an' : '€/mois']);
+        rows.push(['Dépense',e.name,'Montant',safeAmount(e.amount),e.period==='annual'?'€/an':'€/mois','Saisi par utilisateur']);
       });
-      const p = calculateSasProjection();
+      const p=calculateSasProjection();
       p.companies.forEach(function(c) {
-        rows.push(['SAS',c.name,'CA HT',c.ca,'€/mois']);
-        rows.push(['SAS',c.name,'Charges HT',c.charges,'€/mois']);
-        rows.push(['SAS',c.name,'Salaire dirigeant net',c.salaryNet,'€/mois']);
-        rows.push(['SAS',c.name,'Coût du salaire',c.costSalary,'€/mois estimé']);
-        rows.push(['SAS',c.name,'IS estimé',c.taxAnnual,'€/an']);
-        rows.push(['SAS',c.name,'Solde conservé',c.retainedMonth,'€/mois estimé']);
-        rows.push(['SAS',c.name,'Dividendes nets théoriques',c.dividendNetMonth,'€/mois équivalent']);
+        const n=c.name, add=function(label,value,unit,certainty) {
+          rows.push(['SAS',n,label,Math.round(value*100)/100,unit,certainty]);
+        };
+        add('CA HT',c.ca,'€/mois','Saisi par utilisateur');
+        add('Charges exploitation HT',c.charges,'€/mois','Saisi par utilisateur');
+        add('Salaires net avant PAS',c.salaryNet,'€/mois','Saisi par utilisateur');
+        add('Net après PAS',c.salaryCash,'€/mois','Taux PAS saisi');
+        add('Salaire brut approximatif',c.grossSalary,'€/mois','Estimation sociale - URSSAF nécessaire');
+        add('Cotisations salariales approximatives',c.employeeContrib,'€/mois','Estimation ≈22 % du brut');
+        add('Cotisations patronales approximatives',c.employerContrib,'€/mois','Estimation ≈35 % du brut');
+        add('Coût total rémunération',c.costSalary,'€/mois','Estimation sociale');
+        add('CFE',c.cfeAnnual,'€/an','Provision locale ou exonération à vérifier');
+        add('Taxe sur les salaires',c.taxSalariesAnnual,'€/an','Estimation sous conditions de non-TVA');
+        add('TVA collectée',c.vat.outputVAT,'€/mois','Taux/régime choisis ou projetés');
+        add('TVA déductible achats',c.vat.recoveredVAT,'€/mois','Achats renseignés et statut TVA');
+        add('TVA nette due',c.vat.vatToPay,'€/mois','Flux de TVA, hors résultat');
+        add('TVA sur achats non récupérable',c.nonRecoverableVATMonthly,'€/mois','Franchise TVA');
+        add('Création 2026',c.formationCashCost,'€ ponctuels','Frais légaux de base et annonce');
+        add('Résultat avant IS',c.preTax,'€/mois','Simulation 12 mois sans déficits antérieurs');
+        add('IS',c.taxAnnual,'€/an','Taux réduit si conditions confirmées');
+        add('Bénéfice après IS',c.afterTax,'€/mois','Simulation');
+        add('Réserve légale',c.reserveAnnual,'€/an','Selon capital renseigné');
+        add('Dividendes nets hypothétiques',c.dividendNetMonth,'€/mois équivalent','Jamais automatiquement versés au foyer');
+        add('Solde conservé',c.retainedMonth,'€/mois','Simulation (pas solde bancaire réel)');
+        add('Trésorerie projetée',c.cashTwelveMonths,'€ fin 12 mois','Simplifié : hors BFR/amortissements');
+        c.warnings.forEach(function(w) {rows.push(['Attention',n,'A vérifier','', '',w]);});
       });
-      rows.push(['Budget','Total','Recettes personnelles nettes',currentCalc.totalRecettesNet || 0,'€/mois']);
-      rows.push(['Budget','Total','Dépenses personnelles',currentCalc.totalDepenses || 0,'€/mois']);
-      rows.push(['Budget','Total','Reste à vivre',currentCalc.resteAVivre || 0,'€/mois']);
-      const csv = '\uFEFF' + rows.map(function(row) {
-        return row.map(function(v) {return '"' + String(v).replace(/"/g, '""') + '"';}).join(';');
+      rows.push(['Budget','Total','Recettes personnelles nettes',currentCalc.totalRecettesNet || 0,'€/mois','Montants personnels + aides estimées']);
+      rows.push(['Budget','Total','Dépenses personnelles',currentCalc.totalDepenses || 0,'€/mois','Comprend dépenses personnalisées']);
+      rows.push(['Budget','Total','Reste à vivre',currentCalc.resteAVivre || 0,'€/mois','Simulation']);
+      const csv='\uFEFF'+rows.map(function(row) {
+        return row.map(function(v) {return '"' + String(v).replace(/"/g,'""')+'"';}).join(';');
       }).join('\r\n');
-      const url = URL.createObjectURL(new Blob([csv], {type:'text/csv;charset=utf-8'}));
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'simulation-budget-sas-2026.csv';
+      const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
+      const a=document.createElement('a');
+      a.href=url;
+      a.download='simulations-logement-sas-2026.csv';
       document.body.appendChild(a);
       a.click();
       a.remove();
