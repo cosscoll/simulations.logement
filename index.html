@@ -1479,6 +1479,96 @@
       return {annual:total,base:base,rate:rate,declared:entered,estimated:estimated};
     }
 
+
+    // Profils de charges d'exploitation numériques, en € hors taxes.
+    // Valeurs de planification, pas des prix garantis ni des taxes légales.
+    const SASU_DIGITAL_COST_PROFILES=Object.freeze({
+      ia:{
+        name:'SASU IA — formations et outils',hostingMonthly:25,databaseMonthly:25,
+        domainEmailMonthly:12,transactionalEmailMonthly:0,securityMonthly:20,
+        businessToolsMonthly:30,marketingMonthly:100,supportMonthly:0,
+        complianceAnnual:300,maintenanceReserveMonthly:150,contingencyPct:10,
+        cardSalesPct:100,averageTicket:99,cardFeePct:1.5,cardFeeFixed:.25,
+        futureCfeReserveAnnual:300
+      },
+      ucp:{
+        name:'SASU UCP — marketplace BTP',hostingMonthly:60,databaseMonthly:25,
+        domainEmailMonthly:15,transactionalEmailMonthly:20,securityMonthly:45,
+        businessToolsMonthly:35,marketingMonthly:200,supportMonthly:120,
+        complianceAnnual:900,maintenanceReserveMonthly:250,contingencyPct:15,
+        cardSalesPct:100,averageTicket:25,cardFeePct:1.5,cardFeeFixed:.25,
+        futureCfeReserveAnnual:400
+      }
+    });
+    const SASU_DIGITAL_FIELDS=[
+      'hostingMonthly','databaseMonthly','domainEmailMonthly','transactionalEmailMonthly',
+      'securityMonthly','businessToolsMonthly','marketingMonthly','supportMonthly',
+      'complianceAnnual','maintenanceReserveMonthly','contingencyPct',
+      'cardSalesPct','averageTicket','cardFeePct','cardFeeFixed','futureCfeReserveAnnual'
+    ];
+    function applySasuBusinessProfile(company,profile){
+      const requested=['ia','ucp','custom','none'].includes(profile)?profile:'none';
+      company.businessProfile=requested;
+      if(SASU_DIGITAL_COST_PROFILES[requested]){
+        const source=SASU_DIGITAL_COST_PROFILES[requested];
+        SASU_DIGITAL_FIELDS.forEach(function(field){company[field]=source[field]??0;});
+        company.name=source.name;
+        company.bankPlan='economy';
+        company.operatingCostMode='auto';
+        company.accountingPlan=requested==='ia'?'accountant':'custom';
+        company.accountantMonthly=requested==='ia'?95:130;
+        company.insurancePlan=requested==='ia'?'rc':'custom';
+        company.insuranceMonthly=requested==='ia'?18:55;
+      }
+    }
+    function annualSasuDigitalCosts(company,annualCA) {
+      const selected=company.businessProfile||'none';
+      if(selected==='none') return {
+        enabled:false,monthlySubscriptions:0,monthlyServiceVATBase:0,
+        recurringAnnual:0,cardAnnual:0,annualExpenses:0,contingencyAnnual:0,
+        maintenanceReserveAnnual:0,nextCfeReserveAnnual:0,annualReserve:0,
+        breakdown:[],effectiveCardShare:0
+      };
+      const get=function(field){return safeAmount(company[field]);};
+      const subscriptions=[
+        {key:'hostingMonthly',label:'Hébergement / calcul'},
+        {key:'databaseMonthly',label:'Base de données / stockage'},
+        {key:'domainEmailMonthly',label:'Domaine et messagerie'},
+        {key:'transactionalEmailMonthly',label:'Emails transactionnels'},
+        {key:'securityMonthly',label:'Sauvegardes, sécurité, surveillance'},
+        {key:'businessToolsMonthly',label:'Outils métier / vidéo / monitoring'},
+        {key:'marketingMonthly',label:'Acquisition et communication payantes'},
+        {key:'supportMonthly',label:'Support / modération externalisés'}
+      ];
+      const monthlySubscriptions=subscriptions.reduce(function(sum,x){return sum+get(x.key);},0);
+      const complianceAnnual=get('complianceAnnual');
+      const cardShare=between(company.cardSalesPct,0,100)/100;
+      const cardAnnualVolume=annualCA*cardShare;
+      const ticket=get('averageTicket');
+      const transactionCount=ticket>0?cardAnnualVolume/ticket:0;
+      const cardAnnual=cardAnnualVolume*between(company.cardFeePct,0,20)/100+
+        transactionCount*get('cardFeeFixed');
+      const recurringAnnual=monthlySubscriptions*12+complianceAnnual;
+      const annualExpenses=recurringAnnual+cardAnnual;
+      const maintenanceReserveAnnual=12*get('maintenanceReserveMonthly');
+      const contingencyAnnual=(annualExpenses+calculateSasServiceCosts(company,company.createdYear??2026,company.salaryNet).monthlyTotal*12)*
+        between(company.contingencyPct,0,100)/100;
+      const nextCfeReserveAnnual=(company.createdYear===2026)?get('futureCfeReserveAnnual'):0;
+      return {
+        enabled:true,profile:selected,monthlySubscriptions:monthlySubscriptions,
+        recurringAnnual:recurringAnnual,cardAnnual:cardAnnual,
+        annualExpenses:annualExpenses,maintenanceReserveAnnual:maintenanceReserveAnnual,
+        contingencyAnnual:contingencyAnnual,nextCfeReserveAnnual:nextCfeReserveAnnual,
+        annualReserve:maintenanceReserveAnnual+contingencyAnnual+nextCfeReserveAnnual,
+        monthlyServiceVATBase:monthlySubscriptions,
+        averageTicket:ticket,transactionsAnnual:transactionCount,
+        breakdown:subscriptions.map(function(x){return {label:x.label,annual:get(x.key)*12};}).concat([
+          {label:'Conseil juridique / conformité / documents',annual:complianceAnnual},
+          {label:'Frais de paiement estimés',annual:cardAnnual}
+        ])
+      };
+    }
+
     function calculateSasProjection() {
       const companies = customBudget.companies.map(function(company) {
         const warnings = [];
@@ -1497,6 +1587,11 @@
         const insuranceMonthly=services.insuranceMonthly;
         const domiciliationMonthly=services.domiciliationMonthly;
         warnings.push(...services.notes);
+        const businessBudget=annualSasuDigitalCosts(company,ca*12);
+        if(businessBudget.enabled){
+          warnings.push('Budget numérique '+businessBudget.profile.toUpperCase()+' : hébergement, outils, cybersécurité, ventes et marketing sont des PROVISIONS de fonctionnement, pas des frais légaux universels. Remplacer les prix par les factures.');
+          if(businessBudget.cardAnnual>0) warnings.push('Frais cartes : 1,5 % + 0,25 € par transaction selon hypothèses saisies. Le CA de la plateforme UCP doit être UNIQUEMENT son revenu (abonnements/crédits/commissions), pas le montant des chantiers réalisés entre utilisateurs.');
+        }
         const otherTaxesMonthly = safeAmount(company.otherTaxesAnnual) / 12;
 
         // Le président SAS est assimilé salarié, hors assurance chômage.
@@ -1584,11 +1679,12 @@
 
         // Résultat annuel simplifié : toutes les charges ci-dessous sont des coûts annuels.
         const annualIncome = 12 * ca;
-        const yearlyOperating = 12 * (charges + services.monthlyTotal) + services.annualFiling;
+        const yearlyOperating = 12 * (charges + services.monthlyTotal) + services.annualFiling + businessBudget.annualExpenses;
         const yearlyPayroll = 12 * (costSalary + staffCostMonthly);
         // Comptabilité, logiciels et domiciliation peuvent être soumis à TVA,
         // contrairement à la plupart des services bancaires et assurances.
-        const serviceVATBase=services.accountantMonthly+services.domiciliationMonthly;
+        const serviceVATBase=services.accountantMonthly+services.domiciliationMonthly+
+          businessBudget.monthlyServiceVATBase;
         const serviceVAT=serviceVATBase*.20;
         const nonRecoverableServiceVAT=serviceVAT*(12-vat.monthsTaxable);
         const recoveredServiceVAT=serviceVAT*vat.monthsTaxable/12;
@@ -1639,10 +1735,12 @@
         // généralement après la première clôture. On le met de côté pour
         // visualiser le budget futur, sans le déduire deux fois de l'IS 2026.
         const nextFilingReserveAnnual=services.futureFiling;
-        const cashAvailableAnnual=afterTaxAnnual - dividendGrossMonth*12 - nextFilingReserveAnnual;
+        const businessReserveAnnual=businessBudget.annualReserve;
+        const cashAvailableAnnual=afterTaxAnnual - dividendGrossMonth*12 -
+          nextFilingReserveAnnual - businessReserveAnnual;
         const cashAvailableMonthly=cashAvailableAnnual/12;
         const cashTwelveMonths = safeAmount(company.cashStart) + cashAvailableAnnual;
-        const recurringServicesAnnual=services.monthlyTotal*12;
+        const recurringServicesAnnual=services.monthlyTotal*12+businessBudget.annualExpenses;
         const otherYearlyTaxes=cfeAnnual+cvaeAnnual+taxSalariesAnnual+taxeApprentissageAnnual+12*otherTaxesMonthly;
         const operatingExpensesAnnual=charges*12;
         const annualTaxNetAfterIS=taxAnnual+socialISAnnual;
@@ -1672,7 +1770,9 @@
           salaryCash: salaryCash, withheldPAS: withheldPAS,
           bankMonthly: bankMonthly, accountantMonthly: accountantMonthly,
           insuranceMonthly: insuranceMonthly, domiciliationMonthly:domiciliationMonthly,
-          services:services, staffCount:staffCount, staffGross:staffGross,
+          services:services,businessBudget:businessBudget,
+          businessReserveAnnual:businessReserveAnnual,
+          staffCount:staffCount, staffGross:staffGross,
           staffEmployerContrib:staffEmployerContrib, staffMutuelle:staffMutuelle,
           staffCostMonthly:staffCostMonthly,taxeApprentissageAnnual:taxeApprentissageAnnual,
           expensesAuto:expensesAuto, otherTaxesMonthly: otherTaxesMonthly,
@@ -1740,7 +1840,8 @@
         premisesMode:'home',domiciliationMonthly:0,companyVehicles:0,
         capitalDepositMode:'free',capitalDepositFee:0,formationAdvisorFee:0,
         filingMode:'auto',filingAnnualFee:44.14,payrollRegion:'normal',staffCount:0,staffGrossMonthly:0,
-        otherTaxesAnnual: 0, valueAddedAnnual:null, distributionPct: 0, cashStart: 0
+        otherTaxesAnnual: 0, valueAddedAnnual:null, businessProfile:'none',
+        distributionPct: 0, cashStart: 0
       });
       saveCustomBudget();
       renderCustomForms();
