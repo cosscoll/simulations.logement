@@ -1428,7 +1428,9 @@
       const formationAdvisor=createdYear===2026?safeAmount(company.formationAdvisorFee):0;
       const annualFiling=createdYear===2026?0:
         (company.filingMode==='custom'?safeAmount(company.filingAnnualFee):44.14);
-      const futureFiling=createdYear===2026?44.14:0; // échéance après premier exercice
+      const futureFiling=createdYear===2026
+        ? (company.filingMode==='custom'?safeAmount(company.filingAnnualFee):44.14)
+        : 0; // première échéance après exercice, réserve non déduite de l'IS 2026
       const notes=[];
       if(manual)notes.push('Montants de banque, tenue comptable, RC et domiciliation saisis manuellement ; le local loué et les véhicules conservent un budget d’assurance conditionnel.');
       if(!manual && books==='self')notes.push('Comptabilité effectuée soi-même : prestation comptable à 0 €, mais livres, comptes annuels et déclarations demeurent obligatoires.');
@@ -1436,7 +1438,7 @@
       if(vehicles>0)notes.push('Véhicule(s) de la société : assurance obligatoirement prévue à 55 €/mois par véhicule (estimation, sans carburant).');
       if(sectorMandatory && insurance==='none' && !manual)notes.push('Assurance réglementée potentiellement OBLIGATOIRE : aucun prix saisi. Le solde peut être surestimé, demander un devis.');
       if(annualFiling>0)notes.push('Dépôt des comptes annuels : obligation ; 44,14 € retenus comme référence du dépôt par correspondance en 2026. Vérifier le canal réel et la facture.');
-      if(createdYear===2026)notes.push('Premier dépôt des comptes après clôture : échéance future, environ 44,14 € de référence, non imputés aux dépenses 2026.');
+      if(createdYear===2026)notes.push('Premier dépôt des comptes après clôture : échéance future, budget de '+euro(futureFiling)+' mis de côté, non déduit du résultat fiscal de 2026.');
       if(books==='accountant' && !manual)notes.push('Expert-comptable : 95 €/mois est une provision commerciale, pas un tarif obligatoire.');
       if(bank==='free' && !manual)notes.push('Banque : offre à 0 €/mois supposée disponible, vérifier le contrat et les services nécessaires.');
       return {
