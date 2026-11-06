@@ -51,6 +51,19 @@ Les résultats restent dépendants de données renseignées et de conventions de
 - **IS sur 50 000 € de bénéfice imposable, conditions du taux réduit réunies** : 42 500 × 15 % + 7 500 × 25 % = **8 250 €** ; taux normal uniquement = **12 500 €**.
 - **Taxe sur les salaires** : montant brut de base × 4,25 %, puis suppléments de 4,25 % et 9,35 % dans les tranches supérieures ; décote et exonérations conditionnelles. Attention : barème publié pour les salaires 2025 imposés en 2026, et non garantie de paie 2026.
 
+## Actualisation : réintégration des aides dans les recettes (6 novembre 2026)
+
+Après retour utilisateur, le calcul offre maintenant **trois modes** :
+1. **Projection avec aides estimées (par défaut)** : la prime d'activité est estimée par une formule simplifiée, une APL/ALS **hypothétique de 180 €/mois** est préremplie et modifiable, et MOBILI-JEUNE **potentielle jusqu'à 100 €/mois** si alternant et si le loyer net des aides le permet. **Aucun de ces montants ne constitue un droit confirmé**. Ces hypothèses sont clairement visibles dans les recettes, le reste à vivre, le diagramme et les exports.
+2. **Aides réellement accordées** : les trois montants sont saisis à partir des notifications CAF et Action Logement, et seuls ces montants sont intégrés.
+3. **Sans aide** : les montants sont exclus, ce qui permet de mesurer la capacité financière sans prestations.
+
+**Important :** 180 € d'APL est une **hypothèse arbitraire de budget** destinée à préserver un scénario comparable à la version initiale, et non une simulation réglementaire. La prime calculée est une illustration qui ne connaît pas l'historique trimestriel complet, le montant net social, tous les revenus du foyer ni les conditions personnelles d'éligibilité. MOBILI-JEUNE peut être versée sur 11 mensualités au plus par année de formation, après accord et justificatifs ; une moyenne mensuelle projetée ne signifie pas versement mensuel garanti.
+
+L'ancien état enregistré est migré : une simulation comportant au moins une aide accordée positive sélectionne le mode « Montants accordés » afin de préserver les valeurs saisies ; un scénario sans aide renseignée retrouve la projection. Les champs sont sauvegardés par simulation et restaurés après changement.
+
+Sources : [CAF prime d'activité 2026](https://www.caf.fr/allocataires/actualites/actualites-nationales/les-reponses-vos-questions-sur-l-evolution-de-la-prime-d-activite-en-2026) · [CAF simulation aide au logement](https://www.service-public.gouv.fr/particuliers/vosdroits/R2972) · [Action Logement MOBILI-JEUNE](https://www.actionlogement.fr/l-aide-mobili-jeune).
+
 ## Actualisation : frais de fonctionnement et obligations SASU (6 novembre 2026)
 
 La version du simulateur précise désormais :
