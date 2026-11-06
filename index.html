@@ -1158,12 +1158,25 @@
         return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch];
       });
     }
+    function migrateSasDefaults2026(company) {
+      // Conserve les montants saisis dans les anciennes simulations.
+      // Seul l'ancien préréglage CFE=300 sans taux communal devient
+      // estimation automatique, pour que le changement de CA ait un effet.
+      if (!company || typeof company !== 'object') return company;
+      if (company.cfeMode === 'provision' && Number(company.cfeAnnual) === 300 &&
+          (company.cfeLocalRate === undefined || company.cfeLocalRate === null)) {
+        company.cfeMode = 'auto';
+        company.cfeLocalRate = 30;
+      }
+      if (company.operatingCostMode === undefined) company.operatingCostMode = 'auto';
+      return company;
+    }
     function loadCustomBudget() {
       try {
         const data = JSON.parse(localStorage.getItem(CUSTOM_BUDGET_KEY) || '{}');
         return {
           expenses: Array.isArray(data.expenses) ? data.expenses.slice(0, 100) : [],
-          companies: Array.isArray(data.companies) ? data.companies.slice(0, 25) : []
+          companies: Array.isArray(data.companies) ? data.companies.slice(0, 25).map(migrateSasDefaults2026) : []
         };
       } catch (error) {
         return {expenses: [], companies: []};
@@ -1858,7 +1871,7 @@
       });
       const expenses = Array.isArray(data && data.expenses) ? data.expenses.slice(0,100).filter(function(x) {return x && typeof x === 'object' && !Array.isArray(x);}) : [];
       const companies = Array.isArray(data && data.companies) ? data.companies.slice(0,25).filter(function(x) {return x && typeof x === 'object' && !Array.isArray(x);}) : [];
-      return {controls:controls, expenses:cloneSimulationData(expenses), companies:cloneSimulationData(companies)};
+      return {controls:controls, expenses:cloneSimulationData(expenses), companies:cloneSimulationData(companies).map(migrateSasDefaults2026)};
     }
     function defaultSimulationSnapshot() {
       return cleanSimulationSnapshot({controls:SCENARIO_DEFAULTS, expenses:[], companies:[]});
