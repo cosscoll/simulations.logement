@@ -1614,6 +1614,7 @@
           numberField('Autres taxes annuelles connues (€)','otherTaxesAnnual',company.otherTaxesAnnual,50,'Taxe sectorielle / autres taxes : ne pas doubler la CFE') +
           numberField('Distribution du bénéfice (%)','distributionPct',company.distributionPct,5,'Dividendes théoriques après IS et réserve ; non ajoutés au budget personnel') +
           '</div></details>' +
+          '<p class="text-[11px] text-amber-900 bg-amber-50 p-2 rounded-lg">Hypothèse de projection : 12 mois de CA constant, établissement en métropole et régime à l’IS. Les frais bancaires/comptables/assurances automatiques sont facultatifs, pas des taxes. La CFE automatique suppose un taux communal de 30 % modifiable. La date réelle de création et de bascule TVA peut modifier le résultat.</p>' +
           '<p class="text-[11px] text-slate-500">La rémunération et les impôts sont recalculés automatiquement. Les taux sociaux précis, la CFE locale et certains régimes fiscaux nécessitent des justificatifs.</p>' +
           '</article>';
       }).join('') : '<p class="text-xs text-slate-500 italic py-2">Aucune société. Ajoute une SAS/SASU pour simuler les coûts selon sa situation.</p>';
@@ -1645,7 +1646,7 @@
       projections.innerHTML = sasProjection.companies.map(function(c) {
         const warnings = c.warnings.map(function(w) {return '<li>' + safeMarkup(w) + '</li>';}).join('');
         const vatExplanation = c.vat.taxable
-          ? 'TVA collectée ' + euro(c.vat.outputVAT) + ' − TVA sur achats récupérable ' + euro(c.vat.recoveredVAT) + ' = ' + euro(c.vat.vatToPay) + ' / mois à reverser (ou crédit), hors résultat HT.'
+          ? 'Moyenne sur 12 mois : TVA collectée ' + euro(c.vat.outputVAT) + ' − TVA sur achats récupérable ' + euro(c.vat.recoveredVAT) + ' = ' + euro(c.vat.vatToPay) + ' / mois à reverser (ou crédit), hors résultat HT. Mois imposables : ' + c.vat.monthsTaxable + '/12. TVA non récupérable des mois de franchise : ' + euro(c.nonRecoverableVATMonthly) + ' / mois (déduite des résultats).'
           : 'Franchise en base : TVA collectée 0 € ; TVA sur achats non récupérable ' + euro(c.nonRecoverableVATMonthly) + ' / mois, ajoutée aux charges.';
         return '<section class="rounded-2xl border border-slate-200 bg-slate-50 p-4 space-y-3">' +
           '<div class="flex flex-wrap items-center justify-between gap-2"><h3 class="font-bold text-slate-900 text-sm">' + safeMarkup(c.name) + '</h3>' +
@@ -1663,7 +1664,7 @@
           '</strong>, retenue PAS : ' + euro(c.withheldPAS) + '.</p>' +
           infoRow('CFE automatique / réelle',c.cfeAnnual/12,c.cfeReason) +
           infoRow('Taxe sur salaires estimée',c.taxSalariesAnnual/12,c.taxSalariesAnnual > 0 ? 'TVA non appliquée et rémunération soumise ; barème progressif simplifié' : 'Non applicable dans ce scénario ou en dessous du seuil de recouvrement') +
-          infoRow('TVA sur achats non récupérable',c.nonRecoverableVATMonthly,'Appliquée seulement en franchise de TVA') +
+          infoRow('TVA sur achats non récupérable',c.nonRecoverableVATMonthly,'Pour les mois sans droit à déduction de TVA ; moyenne sur 12 mois') +
           infoRow('Formalités de création 2026',c.formationCashCost/12,c.createdYear===2026 ?
             'RCS ' + euro(SAS_RULES_2026.registrationRCS) + ' + bénéficiaires ' + euro(SAS_RULES_2026.beneficialOwners) +
             ' + annonce légale ' + euro(c.form === 'SASU' ? SAS_RULES_2026.legalAdSASU:SAS_RULES_2026.legalAdSAS) +
@@ -1671,7 +1672,7 @@
             'Aucun frais de constitution appliqué en 2026, création antérieure') +
           infoRow('Autres taxes annuelles renseignées',c.otherTaxesMonthly,'Exclure taxes déjà comprises ailleurs') +
           '<h4 class="text-xs uppercase tracking-wide text-indigo-700 font-bold mt-3">Résultat fiscal projeté</h4>' +
-          infoRow('Résultat AVANT IS',c.preTax,'CA HT − charges et taxes déductibles − salaire chargé − frais création') +
+          infoRow('Résultat AVANT IS',c.preTax,'CA HT − frais professionnels et taxes déductibles − coût complet des salaires − création') +
           infoRow('IS estimé',c.taxAnnual/12,c.reduced ?
             '15 % jusqu’à 42 500 € de bénéfice annuel, puis 25 % : conditions du capital et du CA remplies selon tes réponses' :
             'Taux 25 % appliqué ; confirmer capital libéré, détention ≥ 75 % et CA ≤ 10 M€ pour 15 %') +
