@@ -109,7 +109,7 @@
         </div>
         <div>
           <h1 class="text-lg font-bold text-slate-900 leading-tight">Simulateur Budget & Aides CAF 2026</h1>
-          <p class="text-xs text-slate-500 font-medium">Alternant & Freelance IA • Barèmes officiels vérifiés</p>
+          <p class="text-xs text-slate-500 font-medium">Alternant, indépendant & SAS • Simulation indicative 2026</p>
         </div>
       </div>
 
@@ -276,7 +276,7 @@
       <div class="flex items-center justify-between mb-3 border-b border-indigo-700/60 pb-2.5">
         <h3 class="text-xs sm:text-sm font-bold tracking-wide uppercase flex items-center gap-2 text-indigo-200">
           <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-          Détail des Calculs Officiels en Direct (Pourquoi ces chiffres ?)
+          Détail des calculs estimatifs en direct (Pourquoi ces chiffres ?)
         </h3>
         <span class="text-[11px] bg-indigo-800 text-indigo-200 font-mono px-2 py-0.5 rounded">Décret 2026-222</span>
       </div>
@@ -317,7 +317,7 @@
             <span class="font-mono text-[11px] bg-sky-500/20 px-1.5 rounded">Toulouse Z2</span>
           </div>
           <p id="detail-apl-calc" class="text-indigo-200 text-[11px]">Loyer pris en compte plafonné à 295 €. APL calculée : 165 €.</p>
-          <p class="text-indigo-300 text-[11px]"><strong>Missions Armée / Pompiers (500 €) :</strong> 100% exonérées d'impôt et invisibles pour la CAF.</p>
+          <p class="text-indigo-300 text-[11px]"><strong>Missions Armée / Pompiers (500 €) :</strong> Régime fiscal et prise en compte par la CAF à vérifier selon l'origine des indemnités.</p>
           <div class="pt-1 border-t border-indigo-800/60 text-[11px] text-indigo-300">
             <strong>Mobili-Jeune :</strong> <span id="detail-mobili-val" class="font-mono text-white">100 €</span>
           </div>
@@ -528,6 +528,47 @@
       </div>
 
     </div>
+
+
+    <!-- Postes libres : dépenses personnelles -->
+    <section class="bg-white rounded-2xl border border-slate-200/80 p-4 sm:p-6 shadow-sm space-y-4" aria-labelledby="custom-expenses-heading">
+      <div class="flex flex-wrap gap-3 items-start justify-between">
+        <div>
+          <h2 id="custom-expenses-heading" class="text-base font-bold text-slate-900">Dépenses personnalisées</h2>
+          <p class="text-xs text-slate-500 mt-1">Ajoute tes propres charges, mensuelles ou annuelles. Elles sont intégrées à ton reste à vivre et au diagramme.</p>
+        </div>
+        <button type="button" onclick="addCustomExpense()" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs">+ Ajouter une dépense</button>
+      </div>
+      <div id="custom-expenses-list" class="grid grid-cols-1 md:grid-cols-2 gap-3"></div>
+      <div class="flex flex-wrap items-center justify-between gap-3 bg-slate-50 border border-slate-200 rounded-xl p-3">
+        <span class="font-semibold text-xs text-slate-700">Dépenses supplémentaires / mois</span>
+        <strong id="custom-expenses-total" class="font-mono text-rose-600">0 €</strong>
+      </div>
+    </section>
+
+    <!-- Plusieurs sociétés SAS et SASU -->
+    <section class="bg-white rounded-2xl border border-slate-200/80 p-4 sm:p-6 shadow-sm space-y-4" aria-labelledby="sas-heading">
+      <div class="flex flex-wrap gap-3 items-start justify-between">
+        <div class="max-w-3xl">
+          <h2 id="sas-heading" class="text-base font-bold text-slate-900">Mes sociétés SAS / SASU</h2>
+          <p class="text-xs text-slate-500 mt-1">Simule plusieurs sociétés. Seuls les salaires nets du dirigeant entrent dans ton budget personnel ; le chiffre d'affaires et les bénéfices restent dans les sociétés.</p>
+        </div>
+        <button type="button" onclick="addSasCompany()" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs">+ Ajouter une SAS / SASU</button>
+      </div>
+      <div id="sas-companies-list" class="grid grid-cols-1 gap-4"></div>
+      <div id="sas-companies-summary" aria-live="polite"></div>
+      <div id="sas-company-projections" class="grid grid-cols-1 md:grid-cols-2 gap-3"></div>
+      <div class="rounded-xl bg-amber-50 border border-amber-200 text-amber-950 p-3 text-xs leading-relaxed space-y-2">
+        <p><strong>Simulation indicative, non-comptable :</strong> les cotisations de rémunération sont approchées par un coefficient modifiable, et l'IS est projeté à partir d'un résultat annuel constant (hors TVA, amortissements, déficits reportables, trésorerie réelle, IR sur salaire et autres régularisations). Les dividendes sont une projection, <strong>jamais ajoutée automatiquement au budget personnel</strong>.</p>
+        <p><strong>Attention CAF :</strong> la rémunération SAS est ajoutée aux ressources de la formule simplifiée existante, mais les APL et la prime d'activité affichées ne constituent ni une notification de droits ni un calcul officiel. Elles sont à confirmer sur les simulateurs CAF.</p>
+        <p>Références : <a class="underline" href="https://entreprendre.service-public.gouv.fr/vosdroits/F37366" target="_blank" rel="noopener noreferrer">statut du président de SAS</a>, <a class="underline" href="https://entreprendre.service-public.gouv.fr/vosdroits/F23575" target="_blank" rel="noopener noreferrer">taux de l'IS</a>, <a class="underline" href="https://www.impots.gouv.fr/particulier/questions/jai-des-valeurs-mobilieres-comment-sont-elles-imposees" target="_blank" rel="noopener noreferrer">fiscalité des dividendes</a>.</p>
+      </div>
+      <div class="flex flex-wrap gap-2">
+        <button type="button" onclick="exportCustomCSV()" class="rounded-lg border border-indigo-200 bg-indigo-50 text-indigo-800 px-3 py-2 text-xs font-semibold hover:bg-indigo-100">Exporter mon scénario (CSV)</button>
+        <button type="button" onclick="clearCustomModules()" class="rounded-lg border border-slate-200 bg-slate-50 text-slate-600 px-3 py-2 text-xs font-semibold hover:bg-slate-100">Effacer mes ajouts</button>
+        <span class="text-xs text-slate-500 self-center">Données enregistrées dans ce navigateur uniquement.</span>
+      </div>
+    </section>
 
   </main>
 
@@ -1000,6 +1041,270 @@
 
       Plotly.react('sankey-chart', data, layout, config);
     }
+
+
+    // Extensions de budget : stockage local, dépenses libres et sociétés.
+    const CUSTOM_BUDGET_KEY = 'simcosme-custom-expenses-sas-v1';
+    function safeAmount(value) {
+      const n = Number(value);
+      return Number.isFinite(n) ? Math.max(0, n) : 0;
+    }
+    function between(value, min, max) {
+      const n = Number(value);
+      return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : min;
+    }
+    function euro(value) {
+      return (Math.round(value * 100) / 100).toLocaleString('fr-FR', {maximumFractionDigits: 2}) + ' €';
+    }
+    function safeMarkup(value) {
+      return String(value).replace(/[&<>"']/g, function(ch) {
+        return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch];
+      });
+    }
+    function loadCustomBudget() {
+      try {
+        const data = JSON.parse(localStorage.getItem(CUSTOM_BUDGET_KEY) || '{}');
+        return {
+          expenses: Array.isArray(data.expenses) ? data.expenses.slice(0, 100) : [],
+          companies: Array.isArray(data.companies) ? data.companies.slice(0, 25) : []
+        };
+      } catch (error) {
+        return {expenses: [], companies: []};
+      }
+    }
+    const customBudget = loadCustomBudget();
+    let customNextId = 1 + Math.max(0, ...customBudget.expenses.concat(customBudget.companies).map(function(item) {
+      return Number.isFinite(Number(item.id)) ? Number(item.id) : 0;
+    }));
+    function saveCustomBudget() {
+      try {
+        localStorage.setItem(CUSTOM_BUDGET_KEY, JSON.stringify(customBudget));
+      } catch (error) {
+        // Le calcul reste fonctionnel sans stockage local (navigation privée).
+      }
+    }
+    function getAdditionalExpensesTotal() {
+      return customBudget.expenses.reduce(function(total, item) {
+        const amount = safeAmount(item.amount);
+        return total + (item.period === 'annual' ? amount / 12 : amount);
+      }, 0);
+    }
+    function calculateSasProjection() {
+      const companies = customBudget.companies.map(function(company) {
+        const ca = safeAmount(company.ca);
+        const charges = safeAmount(company.charges);
+        const cfeAnnual = safeAmount(company.cfeAnnual);
+        const salaryNet = safeAmount(company.salaryNet);
+        const salaryFactor = between(company.salaryFactor, 1, 3);
+        const costSalary = salaryNet === 0 ? 0 : salaryNet * salaryFactor;
+        const preTax = ca - charges - cfeAnnual / 12 - costSalary;
+        const taxableAnnual = Math.max(0, preTax * 12);
+        const reduced = company.reducedIS === true;
+        const taxAnnual = reduced
+          ? Math.min(taxableAnnual, 42500) * 0.15 + Math.max(0, taxableAnnual - 42500) * 0.25
+          : taxableAnnual * 0.25;
+        const afterTax = preTax - taxAnnual / 12;
+        const distributionPct = between(company.distributionPct, 0, 100);
+        const dividendGrossMonth = Math.max(0, afterTax) * distributionPct / 100;
+        const dividendNetMonth = dividendGrossMonth * (1 - 0.314);
+        const retainedMonth = afterTax - dividendGrossMonth;
+        const cashTwelveMonths = safeAmount(company.cashStart) + 12 * retainedMonth;
+        return {
+          id: company.id, name: String(company.name || 'Société sans nom'), ca: ca,
+          charges: charges, cfeAnnual: cfeAnnual, salaryNet: salaryNet,
+          salaryFactor: salaryFactor, costSalary: costSalary, preTax: preTax,
+          taxAnnual: taxAnnual, afterTax: afterTax, dividendGrossMonth: dividendGrossMonth,
+          dividendNetMonth: dividendNetMonth, retainedMonth: retainedMonth,
+          cashTwelveMonths: cashTwelveMonths, reduced: reduced
+        };
+      });
+      return {
+        companies: companies,
+        totalSalaryNet: companies.reduce(function(a, c) {return a + c.salaryNet;}, 0),
+        totalCA: companies.reduce(function(a, c) {return a + c.ca;}, 0),
+        totalRetained: companies.reduce(function(a, c) {return a + c.retainedMonth;}, 0),
+        totalDividendNet: companies.reduce(function(a, c) {return a + c.dividendNetMonth;}, 0)
+      };
+    }
+    function addCustomExpense() {
+      if (customBudget.expenses.length >= 100) return;
+      customBudget.expenses.push({id: customNextId++, name: 'Nouvelle dépense', amount: 0, period: 'monthly'});
+      saveCustomBudget();
+      renderCustomForms();
+      updateSimulation();
+    }
+    function removeCustomExpense(id) {
+      customBudget.expenses = customBudget.expenses.filter(function(x) {return x.id !== id;});
+      saveCustomBudget();
+      renderCustomForms();
+      updateSimulation();
+    }
+    function addSasCompany() {
+      if (customBudget.companies.length >= 25) return;
+      customBudget.companies.push({
+        id: customNextId++, name: 'SASU ' + (customBudget.companies.length + 1),
+        ca: 0, charges: 0, cfeAnnual: 0, salaryNet: 0,
+        salaryFactor: 1.8, reducedIS: false, distributionPct: 0, cashStart: 0
+      });
+      saveCustomBudget();
+      renderCustomForms();
+      updateSimulation();
+    }
+    function removeSasCompany(id) {
+      customBudget.companies = customBudget.companies.filter(function(x) {return x.id !== id;});
+      saveCustomBudget();
+      renderCustomForms();
+      updateSimulation();
+    }
+    function numberField(label, field, value, step, help) {
+      return '<label class="space-y-1 block text-xs font-semibold text-slate-700">' +
+        '<span>' + safeMarkup(label) + '</span>' +
+        '<input data-field="' + field + '" type="number" inputmode="decimal" min="0" step="' + (step || '1') +
+        '" value="' + safeAmount(value) + '" class="w-full p-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-indigo-400 outline-none font-mono text-sm">' +
+        (help ? '<span class="block text-[10px] font-normal text-slate-500">' + safeMarkup(help) + '</span>' : '') +
+        '</label>';
+    }
+    function renderCustomForms() {
+      const expenseList = document.getElementById('custom-expenses-list');
+      const companyList = document.getElementById('sas-companies-list');
+      if (!expenseList || !companyList) return;
+      expenseList.innerHTML = customBudget.expenses.length ? customBudget.expenses.map(function(expense) {
+        return '<div data-expense-id="' + expense.id + '" class="bg-slate-50 border border-slate-200 rounded-xl p-3 flex flex-col sm:flex-row gap-2 items-stretch sm:items-end">' +
+          '<label class="flex-1 min-w-0 text-[11px] font-semibold text-slate-600">Nom de la dépense' +
+          '<input data-field="name" maxlength="80" class="block w-full mt-1 p-2 rounded-lg bg-white border border-slate-200 text-sm text-slate-900" value="' + safeMarkup(expense.name || '') + '"></label>' +
+          '<label class="w-full sm:w-28 text-[11px] font-semibold text-slate-600">Montant (€)' +
+          '<input data-field="amount" type="number" min="0" step="1" inputmode="decimal" class="block w-full mt-1 p-2 rounded-lg bg-white border border-slate-200 text-sm font-mono text-slate-900" value="' + safeAmount(expense.amount) + '"></label>' +
+          '<label class="w-full sm:w-28 text-[11px] font-semibold text-slate-600">Fréquence' +
+          '<select data-field="period" class="block w-full mt-1 p-2 rounded-lg bg-white border border-slate-200 text-sm">' +
+          '<option value="monthly"' + (expense.period !== 'annual' ? ' selected' : '') + '>Mensuelle</option>' +
+          '<option value="annual"' + (expense.period === 'annual' ? ' selected' : '') + '>Annuelle</option></select></label>' +
+          '<button type="button" data-remove-expense="' + expense.id + '" aria-label="Supprimer cette dépense" class="px-3 py-2 text-xs text-rose-700 rounded-lg bg-rose-50 hover:bg-rose-100">Retirer</button></div>';
+      }).join('') : '<p class="text-xs text-slate-500 italic py-2">Aucune dépense supplémentaire pour le moment.</p>';
+
+      companyList.innerHTML = customBudget.companies.length ? customBudget.companies.map(function(company) {
+        return '<article data-company-id="' + company.id + '" class="rounded-2xl border border-indigo-100 bg-indigo-50/30 p-4 space-y-4">' +
+          '<div class="flex flex-wrap items-end justify-between gap-2">' +
+          '<label class="text-xs font-semibold text-slate-700 flex-1">Nom de la SAS / SASU' +
+          '<input data-field="name" maxlength="100" value="' + safeMarkup(company.name || '') + '" class="block w-full mt-1 p-2.5 rounded-xl bg-white border border-slate-200 text-sm font-semibold"></label>' +
+          '<button type="button" data-remove-company="' + company.id + '" class="px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-lg text-xs font-semibold">Supprimer la société</button></div>' +
+          '<div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">' +
+          numberField("Chiffre d'affaires HT / mois", 'ca', company.ca, 100, 'Facturé HT par la société') +
+          numberField("Charges d'exploitation HT / mois", 'charges', company.charges, 50, 'Achats, outils, locaux, comptable… hors rémunération et CFE') +
+          numberField("Salaire dirigeant NET / mois", 'salaryNet', company.salaryNet, 50, 'Net avant impôt personnel, versé au dirigeant') +
+          numberField("Coût société / net (coefficient)", 'salaryFactor', company.salaryFactor, 0.05, 'Approximation modifiable : 1,80 par défaut, zéro coût si salaire nul') +
+          numberField("CFE / autres impôts annuels (€)", 'cfeAnnual', company.cfeAnnual, 50, 'Provision annuelle indicative, 0 € par défaut') +
+          numberField("Trésorerie de départ (€)", 'cashStart', company.cashStart, 100, 'Projection simple à 12 mois') +
+          '<label class="space-y-1 block text-xs font-semibold text-slate-700"><span>Distribution théorique du bénéfice</span>' +
+          '<input type="number" data-field="distributionPct" min="0" max="100" step="5" value="' + between(company.distributionPct, 0, 100) + '" class="w-full p-2.5 rounded-xl border border-slate-200 bg-slate-50 font-mono text-sm">' +
+          '<span class="block text-[10px] font-normal text-slate-500">Pourcentage de profit après IS (0 à 100 %). Pas un salaire.</span></label>' +
+          '<label class="space-y-1 block text-xs font-semibold text-slate-700"><span>IS de la société</span><select data-field="reducedIS" class="w-full p-2.5 rounded-xl border border-slate-200 bg-slate-50 text-sm">' +
+          '<option value="false"' + (!company.reducedIS ? ' selected' : '') + '>25 % (taux normal)</option>' +
+          '<option value="true"' + (company.reducedIS ? ' selected' : '') + '>15 % jusqu’à 42 500 € sous conditions, puis 25 %</option></select>' +
+          '<span class="block text-[10px] font-normal text-slate-500">Choisir le réduit uniquement si les conditions légales sont remplies.</span></label></div>' +
+          '</article>';
+      }).join('') : '<p class="text-xs text-slate-500 italic py-2">Aucune société. Ajoute une SAS pour simuler son activité et ta rémunération.</p>';
+    }
+    function renderCustomSummary(sasProjection, additionalExpensesTotal) {
+      const expenseAmount = document.getElementById('custom-expenses-total');
+      const summary = document.getElementById('sas-companies-summary');
+      const projections = document.getElementById('sas-company-projections');
+      if (!expenseAmount || !summary || !projections) return;
+      expenseAmount.textContent = euro(additionalExpensesTotal);
+      summary.innerHTML = '<div class="grid grid-cols-2 lg:grid-cols-4 gap-3">' +
+        '<div class="p-3 bg-slate-50 border border-slate-200 rounded-xl"><span class="text-xs text-slate-500 block">CA cumulé SAS HT / mois</span><strong class="text-lg font-mono text-slate-800">' + euro(sasProjection.totalCA) + '</strong></div>' +
+        '<div class="p-3 bg-emerald-50 border border-emerald-200 rounded-xl"><span class="text-xs text-emerald-800 block">Salaire net personnel / mois</span><strong class="text-lg font-mono text-emerald-800">' + euro(sasProjection.totalSalaryNet) + '</strong></div>' +
+        '<div class="p-3 bg-sky-50 border border-sky-200 rounded-xl"><span class="text-xs text-sky-800 block">Solde conservé en sociétés / mois</span><strong class="text-lg font-mono text-sky-800">' + euro(sasProjection.totalRetained) + '</strong></div>' +
+        '<div class="p-3 bg-amber-50 border border-amber-200 rounded-xl"><span class="text-xs text-amber-800 block">Dividendes nets théoriques / mois*</span><strong class="text-lg font-mono text-amber-800">' + euro(sasProjection.totalDividendNet) + '</strong></div></div>' +
+        '<p class="text-[11px] text-slate-500 mt-2">*Équivalent mensuel d’une distribution potentielle après PFU indicatif de 31,4 %, non versée automatiquement. Les droits à distribution et l’imposition réelle sont à vérifier.</p>';
+      projections.innerHTML = sasProjection.companies.map(function(c) {
+        return '<div class="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-2 text-xs">' +
+          '<h3 class="font-bold text-slate-900">' + safeMarkup(c.name) + '</h3>' +
+          '<div class="grid grid-cols-2 gap-x-3 gap-y-2">' +
+          '<span>CA HT / mois</span><strong class="text-right font-mono">' + euro(c.ca) + '</strong>' +
+          '<span>Charges + CFE / mois</span><strong class="text-right font-mono">' + euro(c.charges + c.cfeAnnual / 12) + '</strong>' +
+          '<span>Coût total rémunération / mois</span><strong class="text-right font-mono">' + euro(c.costSalary) + '</strong>' +
+          '<span>Résultat avant IS / mois</span><strong class="text-right font-mono">' + euro(c.preTax) + '</strong>' +
+          '<span>Provision IS estimée / mois</span><strong class="text-right font-mono">' + euro(c.taxAnnual / 12) + '</strong>' +
+          '<span>Résultat après IS / mois</span><strong class="text-right font-mono">' + euro(c.afterTax) + '</strong>' +
+          '<span>Solde conservé / mois</span><strong class="text-right font-mono">' + euro(c.retainedMonth) + '</strong>' +
+          '<span>Projection à 12 mois, trésorerie incluse</span><strong class="text-right font-mono ' + (c.cashTwelveMonths < 0 ? 'text-rose-600' : 'text-emerald-700') + '">' + euro(c.cashTwelveMonths) + '</strong></div>' +
+          (c.retainedMonth < 0 ? '<p class="text-rose-700 font-semibold">Attention : déficit simulé. La rémunération ou les charges dépassent les ressources après impôt.</p>' : '') +
+          '</div>';
+      }).join('');
+    }
+    function handleCustomChange(event, kind) {
+      const root = event.target.closest(kind === 'expenses' ? '[data-expense-id]' : '[data-company-id]');
+      const field = event.target.dataset.field;
+      if (!root || !field) return;
+      const id = Number(kind === 'expenses' ? root.dataset.expenseId : root.dataset.companyId);
+      const item = (kind === 'expenses' ? customBudget.expenses : customBudget.companies).find(function(x) {return x.id === id;});
+      if (!item) return;
+      if (field === 'name') item.name = event.target.value.slice(0, 100);
+      else if (field === 'period') item.period = event.target.value === 'annual' ? 'annual' : 'monthly';
+      else if (field === 'reducedIS') item.reducedIS = event.target.value === 'true';
+      else if (field === 'salaryFactor') item.salaryFactor = between(event.target.value, 1, 3);
+      else if (field === 'distributionPct') item.distributionPct = between(event.target.value, 0, 100);
+      else item[field] = safeAmount(event.target.value);
+      saveCustomBudget();
+      updateSimulation();
+    }
+    function clearCustomModules() {
+      if (!window.confirm('Supprimer toutes tes dépenses personnalisées et tes simulations de SAS enregistrées dans ce navigateur ?')) return;
+      customBudget.expenses = [];
+      customBudget.companies = [];
+      saveCustomBudget();
+      renderCustomForms();
+      updateSimulation();
+    }
+    function exportCustomCSV() {
+      const rows = [['Type','Nom','Champ','Valeur','Unité']];
+      customBudget.expenses.forEach(function(e) {
+        rows.push(['Dépense',e.name,'Montant',safeAmount(e.amount),e.period === 'annual' ? '€/an' : '€/mois']);
+      });
+      const p = calculateSasProjection();
+      p.companies.forEach(function(c) {
+        rows.push(['SAS',c.name,'CA HT',c.ca,'€/mois']);
+        rows.push(['SAS',c.name,'Charges HT',c.charges,'€/mois']);
+        rows.push(['SAS',c.name,'Salaire dirigeant net',c.salaryNet,'€/mois']);
+        rows.push(['SAS',c.name,'Coût du salaire',c.costSalary,'€/mois estimé']);
+        rows.push(['SAS',c.name,'IS estimé',c.taxAnnual,'€/an']);
+        rows.push(['SAS',c.name,'Solde conservé',c.retainedMonth,'€/mois estimé']);
+        rows.push(['SAS',c.name,'Dividendes nets théoriques',c.dividendNetMonth,'€/mois équivalent']);
+      });
+      rows.push(['Budget','Total','Recettes personnelles nettes',currentCalc.totalRecettesNet || 0,'€/mois']);
+      rows.push(['Budget','Total','Dépenses personnelles',currentCalc.totalDepenses || 0,'€/mois']);
+      rows.push(['Budget','Total','Reste à vivre',currentCalc.resteAVivre || 0,'€/mois']);
+      const csv = '\uFEFF' + rows.map(function(row) {
+        return row.map(function(v) {return '"' + String(v).replace(/"/g, '""') + '"';}).join(';');
+      }).join('\r\n');
+      const url = URL.createObjectURL(new Blob([csv], {type:'text/csv;charset=utf-8'}));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'simulation-budget-sas-2026.csv';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    }
+    window.addEventListener('DOMContentLoaded', function() {
+      const expensesEl = document.getElementById('custom-expenses-list');
+      const companiesEl = document.getElementById('sas-companies-list');
+      expensesEl.addEventListener('input', function(e) {handleCustomChange(e, 'expenses');});
+      expensesEl.addEventListener('change', function(e) {handleCustomChange(e, 'expenses');});
+      companiesEl.addEventListener('input', function(e) {handleCustomChange(e, 'companies');});
+      companiesEl.addEventListener('change', function(e) {handleCustomChange(e, 'companies');});
+      expensesEl.addEventListener('click', function(e) {
+        const btn=e.target.closest('[data-remove-expense]');
+        if(btn) removeCustomExpense(Number(btn.dataset.removeExpense));
+      });
+      companiesEl.addEventListener('click', function(e) {
+        const btn=e.target.closest('[data-remove-company]');
+        if(btn) removeSasCompany(Number(btn.dataset.removeCompany));
+      });
+      renderCustomForms();
+      updateSimulation();
+    });
+
 
     // Copie du résumé vers le presse-papier
     function copySummary() {
