@@ -630,7 +630,7 @@
       <div id="sas-companies-summary" aria-live="polite"></div>
       <div id="sas-company-projections" class="grid grid-cols-1 md:grid-cols-2 gap-3"></div>
       <div class="rounded-xl bg-amber-50 border border-amber-200 text-amber-950 p-3 text-xs leading-relaxed space-y-2">
-        <p><strong>Ce qui est automatique :</strong> cotisations sociales estimées si salaire non nul, IS sur le bénéfice, CFE selon création et CA historique, frais de constitution ponctuels, taxe sur les salaires sous hypothèse de franchise TVA, TVA (collectée/récupérable), réserve légale et fiscalité forfaitaire des dividendes.</p>
+        <p><strong>Calculs automatiques :</strong> IS, TVA et sa récupération selon régime, CFE estimée, taxe sur les salaires, taxe d’apprentissage, CVAE si CA élevé, charges sociales si rémunération et frais de constitution ponctuels. Les frais de prestataires s’adaptent à la banque, la comptabilité, le local, l’assurance, les véhicules et les salariés renseignés.</p>
         <p><strong>Ce qui exige une valeur réelle :</strong> les cotisations de paie exactes (selon l'URSSAF), la CFE votée par ta commune, le régime TVA effectivement applicable, les dépenses de banque/comptabilité, les salaires de salariés éventuels et la CVAE si CA > 500 000 €. Un chiffre provisoire est toujours étiqueté <strong>estimation</strong>. Le salaire net après prélèvement à la source est seul ajouté au budget personnel.</p>
         <p><strong>Périmètre :</strong> sociétés à l'IS en France métropolitaine, exercice complet 2026 de 12 mois à CA constant, sans report déficitaire ni amortissements détaillés. Les aides CAF du site et l'impôt sur le revenu hors PAS du président restent des simulations simplifiées, à confirmer.</p>
         <p class="flex flex-wrap gap-x-3 gap-y-1"><a class="underline" href="https://mon-entreprise.urssaf.fr/simulateurs/sasu" target="_blank" rel="noopener noreferrer">URSSAF : salaire SASU</a>
@@ -1807,7 +1807,7 @@
           '<div class="rounded-lg bg-rose-50 p-2"><span class="block text-[11px] text-rose-800">Taxes + cotisations*</span><strong class="font-mono text-sm">'+euro(c.totalTaxesAndSocialAnnual/12)+'</strong></div>' +
           '<div class="rounded-lg bg-sky-50 p-2"><span class="block text-[11px] text-sky-800">TVA à reverser (moyenne)**</span><strong class="font-mono text-sm">'+euro(c.vat.vatToPay)+'</strong></div>' +
           '<div class="rounded-lg bg-emerald-50 p-2"><span class="block text-[11px] text-emerald-800">Bénéfice après impôts</span><strong class="font-mono text-sm">'+euro(c.afterTax)+'</strong></div></div>' +
-          '<p class="text-[11px] text-slate-500 mt-2">*IS, supplément éventuel à l’IS, CFE, taxe sur salaires et cotisations (si salaire), sans double compter les charges. **TVA hors bénéfice : ce n’est pas une taxe sur le CA HT. Frais de société estimés '+euro(c.bankMonthly+c.accountantMonthly+c.insuranceMonthly)+'/mois ('+(c.expensesAuto?'automatiques, facultatifs':'personnalisés')+').</p>' +
+          '<p class="text-[11px] text-slate-500 mt-2">*IS, supplément éventuel à l’IS, CFE, taxe sur salaires et cotisations (si salaire), sans double compter les charges. **TVA hors bénéfice : ce n’est pas une taxe sur le CA HT. Frais de fonctionnement ('+(c.expensesAuto?'selon tes choix':'personnalisés')+') : '+euro(c.services.monthlyTotal)+'/mois. Frais annuels de dépôt des comptes : '+euro(c.services.annualFiling)+'/an pour 2026 ('+(c.createdYear===2026?'premier dépôt après clôture':'obligation annuelle')+').</p>' +
           '<p class="text-xs font-semibold text-slate-700 mt-1">Résultat prévisionnel conservé : '+euro(c.retainedMonth)+'/mois</p>';
       });
       projections.innerHTML = sasProjection.companies.map(function(c) {
@@ -1822,21 +1822,37 @@
           infoRow('Chiffre d’affaires HT',c.ca,'Base de calcul, ne correspond pas au salaire du dirigeant') +
           '<h4 class="text-xs uppercase tracking-wide text-rose-700 font-bold mt-3">Charges professionnelles et prélèvements appliqués</h4>' +
           infoRow('Exploitation HT',c.charges,'Dépenses déclarées dans le formulaire') +
-          infoRow('Banque + comptable + assurances',c.bankMonthly+c.accountantMonthly+c.insuranceMonthly,'Tarifs renseignés, et non forfaits imposés') +
+          '<h4 class="text-xs uppercase tracking-wide text-indigo-700 font-bold mt-3">Frais de gestion : obligation vs prestataire</h4>' +
+          infoRow('Banque — abonnement',c.bankMonthly,'Prix contractuel / hypothèse. Dépôt du capital obligatoire à la création, abonnement payant NON obligatoire.') +
+          infoRow('Comptabilité — outil ou prestataire',c.accountantMonthly,'Tenue comptable obligatoire, expert-comptable facultatif ; mode '+(c.services.books==='self'?'autonome':'selon ton choix')) +
+          infoRow('Domiciliation / local',c.domiciliationMonthly,'Lieu déclaré et frais spécifiques ; au domicile : 0 € dédié si possible') +
+          infoRow('Assurance de l’activité',c.services.insuranceActivity,'Obligation selon activité. Contrôle des assurances réglementées nécessaire.') +
+          infoRow('Assurance du local loué',c.services.premisesInsurance,'Prévue si local locatif déclaré : tarif de référence non légal') +
+          infoRow('Assurance véhicules de société',c.services.vehicleInsurance,'Obligation si la société possède / loue un véhicule ; coût estimé') +
+          infoRow('Dépôt des comptes annuels (2026)',c.services.annualFiling/12,'Obligatoire après approbation. Référence 44,14 € par correspondance ; pour une société créée en 2026 : première échéance généralement 2027.') +
+          '<p class="text-[11px] bg-amber-50 text-amber-900 p-2 rounded-lg">Les frais bancaires, du comptable, des logiciels, assurances et locaux sont des coûts de marché estimés ; leur obligation et leur facture réelle dépendent de tes choix et de ton activité. Aucun forfait de 105 € ne s’applique automatiquement à toutes les SASU.</p>' +
+          '<h4 class="text-xs uppercase tracking-wide text-rose-700 font-bold mt-3">Rémunérations et charges patronales</h4>' +
           infoRow('Salaire net AVANT PAS',c.salaryNet,'Déduit de l’entreprise via le salaire brut et ses cotisations') +
           infoRow('Cotisations salariales estimées',c.employeeContrib,'≈ 22 % du brut, déduites du brut vers le net') +
-          infoRow('Cotisations patronales estimées',c.employerContrib,'≈ 35 % du brut, dues en plus du brut ; hors assurance chômage') +
+          infoRow('Cotisations patronales estimées',c.employerContrib,'≈ 35 % du brut du président, hors assurance chômage') +
+          infoRow('Salaires BRUTS des salariés',c.staffGross,'Saisis dans le formulaire ; hors président, non ajoutés au revenu personnel') +
+          infoRow('Charges patronales salariés estimées',c.staffEmployerContrib,'Environ 40 % du brut, avant vérification DSN/URSSAF') +
+          infoRow('Mutuelle salariés, part employeur',c.staffMutuelle,'30 € / salarié / mois estimés, obligatoire en général si salarié') +
           '<p class="text-[11px] rounded-lg bg-blue-50 text-blue-800 p-2">Coût total du dirigeant pour la société : <strong>' + euro(c.costSalary) +
           ' / mois</strong> (net ' + euro(c.salaryNet) + ' + cotisations ' + euro(c.socialContrib) + '). Net réellement reçu après PAS : <strong>' + euro(c.salaryCash) +
           '</strong>, retenue PAS : ' + euro(c.withheldPAS) + '.</p>' +
+          '<h4 class="text-xs uppercase tracking-wide text-rose-700 font-bold mt-3">Taxes et frais légaux provisionnés</h4>' +
           infoRow('CFE automatique / réelle',c.cfeAnnual/12,c.cfeReason) +
+          infoRow('CVAE et taxe additionnelle',c.cvaeAnnual/12,c.cvaeEstimated?'CA > 500 000 € : valeur ajoutée APPROCHÉE, fournir base fiscale exacte pour plus de précision.':'Valeur ajoutée fiscale saisie ou CA sous seuil CVAE') +
+          infoRow('Taxe d’apprentissage',c.taxeApprentissageAnnual/12,'Selon rémunérations brutes ; 0,68 % en métropole ordinaire ou 0,44 % en Alsace-Moselle, exonérations particulières à confirmer') +
           infoRow('Taxe sur salaires estimée',c.taxSalariesAnnual/12,c.taxSalariesAnnual > 0 ? 'TVA non appliquée et rémunération soumise ; barème progressif simplifié' : 'Non applicable dans ce scénario ou en dessous du seuil de recouvrement') +
           infoRow('TVA sur achats non récupérable',c.nonRecoverableVATMonthly,'Pour les mois sans droit à déduction de TVA ; moyenne sur 12 mois') +
-          infoRow('Formalités de création 2026',c.formationCashCost/12,c.createdYear===2026 ?
-            'RCS ' + euro(SAS_RULES_2026.registrationRCS) + ' + bénéficiaires ' + euro(SAS_RULES_2026.beneficialOwners) +
-            ' + annonce légale ' + euro(c.form === 'SASU' ? SAS_RULES_2026.legalAdSASU:SAS_RULES_2026.legalAdSAS) +
-            ' HT, TVA annonce non déductible si franchise. Coût ponctuel total ' + euro(c.formationCashCost) :
-            'Aucun frais de constitution appliqué en 2026, création antérieure') +
+          infoRow('Formalités de création 2026 (une seule fois)',c.formationCashCost/12,c.createdYear===2026 ?
+            'RCS '+euro(SAS_RULES_2026.registrationRCS)+' + bénéficiaires '+euro(SAS_RULES_2026.beneficialOwners)+
+            ' + annonce légale '+euro(c.form==='SASU'?SAS_RULES_2026.legalAdSASU:SAS_RULES_2026.legalAdSAS)+
+            ' HT + TVA non déductible si franchise + frais optionnels dépôt capital '+euro(c.services.accountDeposit)+
+            ' et assistance '+euro(c.services.formationAdvisor)+'. Coût total ponctuel '+euro(c.formationCashCost)+'.' :
+            'Société créée avant 2026 : aucun frais de constitution imputé en 2026.') +
           infoRow('Autres taxes annuelles renseignées',c.otherTaxesMonthly,'Exclure taxes déjà comprises ailleurs') +
           '<h4 class="text-xs uppercase tracking-wide text-indigo-700 font-bold mt-3">Résultat fiscal projeté</h4>' +
           infoRow('Résultat AVANT IS',c.preTax,'CA HT − frais professionnels et taxes déductibles − coût complet des salaires − création') +
@@ -1923,6 +1939,16 @@
         add('Coût total rémunération',c.costSalary,'€/mois','Estimation sociale');
         add('CFE',c.cfeAnnual,'€/an','Provision locale ou exonération à vérifier');
         add('Taxe sur les salaires',c.taxSalariesAnnual,'€/an','Estimation sous conditions de non-TVA');
+        add('Taxe apprentissage',c.taxeApprentissageAnnual,'€/an','0,68 % ou 0,44 % selon région de paie ; exemptions éventuelles');
+        add('CVAE + taxe additionnelle CCI',c.cvaeAnnual,'€/an',c.cvaeEstimated?'VA approchée':'VA saisie / sous seuil');
+        add('Dépôt comptes annuels',c.services.annualFiling,'€/an','Obligation annuelle avec tarif de référence');
+        add('Banque',c.bankMonthly,'€/mois',c.expensesAuto?'Coût contractuel estimé':'Montant saisi');
+        add('Comptabilité',c.accountantMonthly,'€/mois','Prestation facultative, tenue des comptes obligatoire');
+        add('Assurance activité + local + véhicules',c.insuranceMonthly,'€/mois','Dépend des risques et obligations professionnelles');
+        add('Domiciliation / locaux',c.domiciliationMonthly,'€/mois','Hypothèse ou coût saisi, éviter doublon avec charges');
+        add('Salaires bruts employés',c.staffGross,'€/mois','Hors président');
+        add('Charges patronales salariés',c.staffEmployerContrib,'€/mois','Simulation 40 % du brut');
+        add('Mutuelle salariés',c.staffMutuelle,'€/mois','Estimation 30 € par salarié');
         add('TVA collectée',c.vat.outputVAT,'€/mois','Taux/régime choisis ou projetés');
         add('TVA déductible achats',c.vat.recoveredVAT,'€/mois','Achats renseignés et statut TVA');
         add('TVA nette due',c.vat.vatToPay,'€/mois','Flux de TVA, hors résultat');
@@ -1932,7 +1958,7 @@
         add('IS',c.taxAnnual,'€/an','Taux réduit si conditions confirmées');
         add('Contribution supplémentaire IS',c.socialISAnnual,'€/an','3,3 % sous conditions de seuil IS');
         add('TVA nette annuelle',c.vat.vatYear,'€/an','Mois soumis calculés sur CA moyen constant');
-        add('Frais gestion société',c.bankMonthly+c.accountantMonthly+c.insuranceMonthly,'€/mois',c.expensesAuto?'Provision standard facultative 105 €/mois':'Frais réels saisis');
+        add('Frais gestion société',c.services.monthlyTotal,'€/mois',c.expensesAuto?'Selon banque, comptabilité, activité, véhicule et lieu':'Coûts manuels et assurances conditionnelles');
         add('Bénéfice après IS',c.afterTax,'€/mois','Simulation');
         add('Réserve légale',c.reserveAnnual,'€/an','Selon capital renseigné');
         add('Dividendes nets hypothétiques',c.dividendNetMonth,'€/mois équivalent','Jamais automatiquement versés au foyer');
