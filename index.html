@@ -1312,6 +1312,64 @@
         note:'Base minimale médiane de la tranche de CA × taux communal supposé '+(rate*100).toFixed(1)+' % + taxe CCI et frais de gestion ; ne remplace pas l’avis.'
       };
     }
+
+    // Les démarches sont parfois obligatoires, mais leurs fournisseurs ne le
+    // sont pas. Aucune tarification commerciale ne peut être déduite du CA seul.
+    function calculateSasServiceCosts(company,createdYear,salaryNet) {
+      const manual=company.operatingCostMode==='manual';
+      const sector=company.activitySector||'digital';
+      const premises=company.premisesMode||'home';
+      const bank=company.bankPlan||'economy';
+      const books=company.accountingPlan||'self';
+      const insurance=company.insurancePlan||'sector';
+      const hasVehicle=company.companyVehicles>0;
+      const vehicles=Math.floor(between(company.companyVehicles,0,20));
+      const bankMonthly=manual?safeAmount(company.bankMonthly):
+        (bank==='free'?0:bank==='traditional'?22:bank==='custom'?safeAmount(company.bankMonthly):9);
+      const accountantMonthly=manual?safeAmount(company.accountantMonthly):
+        (books==='accountant'?95:books==='software'?18:books==='custom'?safeAmount(company.accountantMonthly):0);
+      const domiciliationMonthly=manual?safeAmount(company.domiciliationMonthly):
+        (premises==='domiciliation'?25:premises==='coworking'?120:premises==='office'?350:0);
+      // Les contrats sont des estimations de marché, JAMAIS des barèmes légaux.
+      // Local loué et véhicules -> obligation d'assurance ; activité réglementée -> contrôle RC.
+      const sectorMandatory=(sector==='regulated'||sector==='building');
+      const insuranceActivity=manual?safeAmount(company.insuranceMonthly):
+        (insurance==='none'?0:insurance==='custom'?safeAmount(company.insuranceMonthly):
+        insurance==='rc'?18:insurance==='regulated'?55:insurance==='building'?140:
+        (sector==='building'?140:sector==='regulated'?55:0));
+      const premisesInsurance=premises==='office'?25:0;
+      const vehicleInsurance=vehicles*55;
+      const insuranceMonthly=insuranceActivity+premisesInsurance+vehicleInsurance;
+      const accountDeposit=newCompanyFee(company,createdYear);
+      const formationAdvisor=createdYear===2026?safeAmount(company.formationAdvisorFee):0;
+      const annualFiling=createdYear===2026?0:
+        (company.filingMode==='custom'?safeAmount(company.filingAnnualFee):44.14);
+      const futureFiling=createdYear===2026?44.14:0; // échéance après premier exercice
+      const notes=[];
+      if(manual)notes.push('Montants de banque, tenue comptable, RC et domiciliation saisis manuellement ; le local loué et les véhicules conservent un budget d’assurance conditionnel.');
+      if(!manual && books==='self')notes.push('Comptabilité effectuée soi-même : prestation comptable à 0 €, mais livres, comptes annuels et déclarations demeurent obligatoires.');
+      if(premises==='office')notes.push('Local professionnel loué : 350 €/mois de loyer estimé et 25 €/mois d’assurance locale à vérifier. Ne pas compter le même loyer dans les charges générales.');
+      if(vehicles>0)notes.push('Véhicule(s) de la société : assurance obligatoirement prévue à 55 €/mois par véhicule (estimation, sans carburant).');
+      if(sectorMandatory && insurance==='none' && !manual)notes.push('Assurance réglementée potentiellement OBLIGATOIRE : aucun prix saisi. Le solde peut être surestimé, demander un devis.');
+      if(annualFiling>0)notes.push('Dépôt des comptes annuels : obligation ; 44,14 € retenus comme référence du dépôt par correspondance en 2026. Vérifier le canal réel et la facture.');
+      if(createdYear===2026)notes.push('Premier dépôt des comptes après clôture : échéance future, environ 44,14 € de référence, non imputés aux dépenses 2026.');
+      if(books==='accountant' && !manual)notes.push('Expert-comptable : 95 €/mois est une provision commerciale, pas un tarif obligatoire.');
+      if(bank==='free' && !manual)notes.push('Banque : offre à 0 €/mois supposée disponible, vérifier le contrat et les services nécessaires.');
+      return {
+        manual,sector,premises,bank,books,insurance,vehicles,
+        bankMonthly,accountantMonthly,domiciliationMonthly,insuranceActivity,
+        premisesInsurance,vehicleInsurance,insuranceMonthly,
+        accountDeposit,formationAdvisor,annualFiling,futureFiling,
+        monthlyTotal:bankMonthly+accountantMonthly+domiciliationMonthly+insuranceMonthly,
+        notes
+      };
+    }
+    function newCompanyFee(company,createdYear) {
+      if(createdYear!==2026)return 0;
+      const mode=company.capitalDepositMode||'free';
+      return mode==='paid'?35:mode==='custom'?safeAmount(company.capitalDepositFee):0;
+    }
+
     function calculateSasProjection() {
       const companies = customBudget.companies.map(function(company) {
         const warnings = [];
@@ -1323,14 +1381,13 @@
         const priorCa = knownAmount(company.previousCA);
         const caMinusTwo = knownAmount(company.previous2CA);
         const vat = determineTVA(company, ca * 12, createdYear, warnings);
-        const expensesAuto = company.operatingCostMode !== 'manual';
-        // Ces tarifs NE SONT PAS des taxes : budgets indicatifs de services
-        // facultatifs. L'utilisateur peut choisir des frais réels ou 0 €.
-        const bankMonthly = expensesAuto ? 15 : safeAmount(company.bankMonthly);
-        const accountantMonthly = expensesAuto ? 75 : safeAmount(company.accountantMonthly);
-        const insuranceMonthly = expensesAuto ? 15 : safeAmount(company.insuranceMonthly);
-        if(expensesAuto)
-          warnings.push('Fonctionnement : provision de 105 €/mois (banque 15 €, comptabilité 75 €, assurance 15 €). Ce sont des hypothèses facultatives, modifiables en mode personnalisé.');
+        const services=calculateSasServiceCosts(company,createdYear,salaryNet);
+        const expensesAuto=!services.manual;
+        const bankMonthly=services.bankMonthly;
+        const accountantMonthly=services.accountantMonthly;
+        const insuranceMonthly=services.insuranceMonthly;
+        const domiciliationMonthly=services.domiciliationMonthly;
+        warnings.push(...services.notes);
         const otherTaxesMonthly = safeAmount(company.otherTaxesAnnual) / 12;
 
         // Le président SAS est assimilé salarié, hors assurance chômage.
@@ -1339,6 +1396,18 @@
         const employerContrib = grossSalary * SAS_RULES_2026.salaryEmployerApprox;
         const costSalary = grossSalary + employerContrib;
         const socialContrib = employeeContrib + employerContrib;
+        const staffCount=Math.floor(between(company.staffCount,0,50));
+        const staffGrossPerHead=safeAmount(company.staffGrossMonthly);
+        const staffGross=staffCount*staffGrossPerHead;
+        const staffEmployerContrib=staffGross*.40; // approximation, à vérifier par DSN
+        const staffMutuelle=staffCount*30; // part employeur estimée, devis nécessaire
+        const staffCostMonthly=staffGross+staffEmployerContrib+staffMutuelle;
+        const taxeApprentissageAnnual=(grossSalary+staffGross)*12*.0068;
+        if(staffCount>0){
+          warnings.push('Salariés : coût patronal 40 % du brut + mutuelle employeur 30 €/salarié/mois. Estimation, hors exonérations et conventions. La DSN et la paie font foi.');
+          if(staffGrossPerHead===0)warnings.push('Salariés déclarés sans montant de salaire brut : ajouter la paie, sinon le budget est sous-estimé.');
+        }
+        if(taxeApprentissageAnnual>0)warnings.push('Taxe d’apprentissage : 0,68 % des salaires bruts soumis en métropole (Alsace-Moselle / exonération apprentis non modélisées) ; vérifier selon la paie.');
         const pasRate = between(company.pasRate, 0, 45) / 100;
         const withheldPAS = salaryNet * pasRate;
         const salaryCash = salaryNet - withheldPAS;
@@ -1349,9 +1418,9 @@
         // franchise de TVA est normalement exonérée de taxe sur les salaires.
         const taxeSalaireExoneree = createdYear === 2026 ||
           (priorCa !== null && priorCa <= vat.thresholdBasic);
-        const salaireAssujettiPossible = !vat.taxable && salaryNet > 0 && !taxeSalaireExoneree;
+        const salaireAssujettiPossible = !vat.taxable && (salaryNet > 0 || staffGross > 0) && !taxeSalaireExoneree;
         const taxSalariesAnnual = salaireAssujettiPossible && priorCa !== null
-          ? estimatedSalaryTaxes(grossSalary) : 0;
+          ? estimatedSalaryTaxes(grossSalary+staffGross) : 0;
         if(taxeSalaireExoneree && salaryNet > 0 && !vat.taxable)
           warnings.push('Taxe sur les salaires : exonération présumée sur le CA N−1 (à confirmer pour ton activité et l’assujettissement réel à la TVA).');
         if(salaireAssujettiPossible && priorCa === null)
@@ -1400,16 +1469,16 @@
         const newCompany = createdYear === 2026;
         const formationHT = newCompany ? SAS_RULES_2026.registrationRCS + SAS_RULES_2026.beneficialOwners + legalAdHT : 0;
         const formationNotRecoverableVAT = newCompany && !vat.taxableAtCreation ? legalAdHT * .20 : 0;
-        const formationCashCost = formationHT + formationNotRecoverableVAT;
+        const formationCashCost = formationHT + formationNotRecoverableVAT + services.accountDeposit + services.formationAdvisor;
         if (newCompany) warnings.push('Frais de création calculés une seule fois pour 2026 (hors frais de statuts, dépôt de capital et autres prestations).');
 
         // Résultat annuel simplifié : toutes les charges ci-dessous sont des coûts annuels.
         const annualIncome = 12 * ca;
-        const yearlyOperating = 12 * (charges + bankMonthly + accountantMonthly + insuranceMonthly);
-        const yearlyPayroll = 12 * costSalary;
+        const yearlyOperating = 12 * (charges + services.monthlyTotal) + services.annualFiling;
+        const yearlyPayroll = 12 * (costSalary + staffCostMonthly);
         const yearlyNonRecoverableVAT = vat.nonRecoverableVAT * 12;
         const annualExpenses = yearlyOperating + yearlyPayroll + yearlyNonRecoverableVAT +
-          cfeAnnual + taxSalariesAnnual + formationCashCost + 12 * otherTaxesMonthly;
+          cfeAnnual + taxSalariesAnnual + taxeApprentissageAnnual + formationCashCost + 12 * otherTaxesMonthly;
         const resultBeforeISAnnual = annualIncome - annualExpenses;
 
         // IS progressif si les trois conditions légales sont remplies.
@@ -1459,7 +1528,11 @@
           socialContrib: socialContrib, costSalary: costSalary,
           salaryCash: salaryCash, withheldPAS: withheldPAS,
           bankMonthly: bankMonthly, accountantMonthly: accountantMonthly,
-          insuranceMonthly: insuranceMonthly, expensesAuto:expensesAuto, otherTaxesMonthly: otherTaxesMonthly,
+          insuranceMonthly: insuranceMonthly, domiciliationMonthly:domiciliationMonthly,
+          services:services, staffCount:staffCount, staffGross:staffGross,
+          staffEmployerContrib:staffEmployerContrib, staffMutuelle:staffMutuelle,
+          staffCostMonthly:staffCostMonthly,taxeApprentissageAnnual:taxeApprentissageAnnual,
+          expensesAuto:expensesAuto, otherTaxesMonthly: otherTaxesMonthly,
           formationHT: formationHT, formationCashCost: formationCashCost,
           cfeAnnual: cfeAnnual, cfeReason: cfeReason,
           cfeMode:cfeMode,cfeRangeLow:cfeRangeLow,cfeRangeHigh:cfeRangeHigh,
@@ -1468,7 +1541,8 @@
           yearlyPayroll: yearlyPayroll, annualExpenses: annualExpenses,
           preTax: resultBeforeISAnnual / 12, taxableAnnual: taxableAnnual,
           taxAnnual: taxAnnual, socialISAnnual:socialISAnnual, afterTax: afterTaxAnnual / 12, afterTaxAnnual: afterTaxAnnual,
-          totalTaxesAndSocialAnnual:taxAnnual+socialISAnnual+cfeAnnual+taxSalariesAnnual+socialContrib*12+otherTaxesMonthly*12,
+          totalTaxesAndSocialAnnual:taxAnnual+socialISAnnual+cfeAnnual+taxSalariesAnnual+taxeApprentissageAnnual+
+            socialContrib*12+staffEmployerContrib*12+otherTaxesMonthly*12,
           reserveAnnual: reserveAnnual, distributionPct: distributionPct,
           dividendGrossMonth: dividendGrossMonth, dividendTaxMonth: dividendTaxMonth,
           dividendNetMonth: dividendNetMonth, retainedMonth: retainedMonth,
@@ -1509,7 +1583,12 @@
         previousCA: null, previous2CA: null,
         cfeAnnual: 300, cfeMode:'auto', cfeLocalRate:30, capitalPaid: false, ownersIndividualsPct: 100,
         capital: 0, reserveExisting: 0,
-        operatingCostMode:'auto', bankMonthly: 15, accountantMonthly: 75, insuranceMonthly: 15,
+        operatingCostMode:'auto', activitySector:'digital',
+        bankPlan:'economy',bankMonthly:9, accountingPlan:'self',accountantMonthly:0,
+        insurancePlan:'sector',insuranceMonthly:0,
+        premisesMode:'home',domiciliationMonthly:0,companyVehicles:0,
+        capitalDepositMode:'free',capitalDepositFee:0,formationAdvisorFee:0,
+        filingMode:'auto',filingAnnualFee:44.14,staffCount:0,staffGrossMonthly:0,
         otherTaxesAnnual: 0, distributionPct: 0, cashStart: 0
       });
       saveCustomBudget();
