@@ -794,6 +794,8 @@
       if(isSasu) refreshSasuSimulation();
       else if (typeof Plotly!=='undefined' && typeof currentCalc.totalRecettesNet==='number')
         renderSankeyChart();
+      if(window.history && typeof window.history.replaceState==='function')
+        window.history.replaceState(null,'',isSasu?'#sasu':'#budget');
     }
 
     // Initialisation au chargement
@@ -2651,7 +2653,19 @@
       applySimulationSnapshot(imported[0].snapshot);
       const saved = persistScenarioStore();
       renderScenarioMenu();
-      if (saved) showScenarioStatus(imported.length+' simulation(s) importée(s). Les anciennes simulations ont été conservées.');
+      let migratedSasuCount=0;
+      let companiesImportWarning='';
+      // Un ancien export JSON pouvait mélanger revenus personnels et sociétés.
+      // Lors de son import, le répartir automatiquement dans les deux espaces.
+      if(sasScenarioReady && raw.simulations.some(function(item){
+        return item&&item.snapshot&&Array.isArray(item.snapshot.companies)&&item.snapshot.companies.length>0;
+      })){
+        try{migratedSasuCount=mergeImportedSasSimulations(raw);}
+        catch(error){companiesImportWarning=' SASU non importées : '+error.message;}
+      }
+      if (saved) showScenarioStatus(imported.length+' simulation(s) personnelles importée(s). '+
+        (migratedSasuCount?migratedSasuCount+' simulation(s) SASU ajoutée(s) dans l’autre espace.':'')+
+        companiesImportWarning+' Les anciennes simulations ont été conservées.');
       return imported.length;
     }
     function importSavedSimulationFile(file) {
@@ -2917,12 +2931,14 @@
           previous.simulations.slice(0,50).forEach(function(item){
             const oldCompanies=item&&item.snapshot&&item.snapshot.companies;
             if(!Array.isArray(oldCompanies)||!oldCompanies.length)return;
-            sasScenarioStore.simulations.push({
+            const migrated={
               id:newSimulationId(),name:('SASU — '+String(item.name||'Simulation historique')).slice(0,80),
               createdAt:item.createdAt||new Date().toISOString(),
               updatedAt:item.updatedAt||new Date().toISOString(),
               companies:cleanSasCompanies(oldCompanies)
-            });
+            };
+            sasScenarioStore.simulations.push(migrated);
+            if(item.id===previous.activeId)sasScenarioStore.activeId=migrated.id;
           });
         }
         if(!sasScenarioStore.simulations.length&&customBudget.companies.length){
