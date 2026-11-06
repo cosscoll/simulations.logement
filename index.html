@@ -1432,12 +1432,13 @@
         const staffEmployerContrib=staffGross*.40; // approximation, à vérifier par DSN
         const staffMutuelle=staffCount*30; // part employeur estimée, devis nécessaire
         const staffCostMonthly=staffGross+staffEmployerContrib+staffMutuelle;
-        const taxeApprentissageAnnual=(grossSalary+staffGross)*12*.0068;
+        const tauxApprentissage=company.payrollRegion==='alsace'?.0044:.0068;
+        const taxeApprentissageAnnual=(grossSalary+staffGross)*12*tauxApprentissage;
         if(staffCount>0){
           warnings.push('Salariés : coût patronal 40 % du brut + mutuelle employeur 30 €/salarié/mois. Estimation, hors exonérations et conventions. La DSN et la paie font foi.');
           if(staffGrossPerHead===0)warnings.push('Salariés déclarés sans montant de salaire brut : ajouter la paie, sinon le budget est sous-estimé.');
         }
-        if(taxeApprentissageAnnual>0)warnings.push('Taxe d’apprentissage : 0,68 % des salaires bruts soumis en métropole (Alsace-Moselle / exonération apprentis non modélisées) ; vérifier selon la paie.');
+        if(taxeApprentissageAnnual>0)warnings.push('Taxe d’apprentissage : '+(tauxApprentissage*100).toFixed(2)+' % des rémunérations brutes estimées ; exonérations apprentis non modélisées, vérifier DSN.');
         const pasRate = between(company.pasRate, 0, 45) / 100;
         const withheldPAS = salaryNet * pasRate;
         const salaryCash = salaryNet - withheldPAS;
@@ -1451,7 +1452,7 @@
         const salaireAssujettiPossible = !vat.taxable && (salaryNet > 0 || staffGross > 0) && !taxeSalaireExoneree;
         const taxSalariesAnnual = salaireAssujettiPossible && priorCa !== null
           ? estimatedSalaryTaxes(grossSalary+staffGross) : 0;
-        if(taxeSalaireExoneree && salaryNet > 0 && !vat.taxable)
+        if(taxeSalaireExoneree && (salaryNet>0 || staffGross>0) && !vat.taxable)
           warnings.push('Taxe sur les salaires : exonération présumée sur le CA N−1 (à confirmer pour ton activité et l’assujettissement réel à la TVA).');
         if(salaireAssujettiPossible && priorCa === null)
           warnings.push('Taxe sur les salaires NON chiffrée : CA 2025 absent. Le solde de la société peut être surestimé.');
@@ -1560,10 +1561,11 @@
         // TVA : flux distinct du résultat HT (TVA collectée - récupérable). Si franchise,
         // TVA amont non récupérable déjà comptée comme une charge.
         if (vat.rate === 0) warnings.push('Taux TVA = 0 % : vérifier si franchise, exonération, exportation ou taux particulier.');
-        if (ca * 12 > 152500) warnings.push('Obligation déclarative CVAE potentielle au-delà de 152 500 € de CA annuel : non simulée.');
-        if (ca * 12 > 500000) warnings.push('CVAE potentiellement due au-delà de 500 000 € : montant NON calculé faute de valeur ajoutée comptable. Solde surestimé.');
-        if (company.vatRegime === 'auto' && ca * 12 > vat.thresholdUpper)
-          warnings.push('Le déclenchement de TVA en cours d’année ne peut pas être daté avec un simple CA moyen mensuel.');
+        if(ca*12>152500) warnings.push('CA > 152 500 € : déclaration CVAE et effectifs potentiellement obligatoire.');
+        if(ca*12>500000 && cv.estimated) warnings.push('CVAE calculée sur VA PROVISOIRE, non le chiffre fiscal réel ; ajouter la valeur ajoutée de la liasse pour préciser.');
+        if(ca*12>500000 && cv.declared!==null) warnings.push('CVAE : valeur ajoutée déclarée utilisée (avant plafonnement fiscal).');
+        if(company.vatRegime==='auto' && ca*12>vat.thresholdUpper)
+          warnings.push('TVA : le calcul suppose des factures uniformes sur 12 mois, sans identifier le jour réel de bascule.');
         warnings.push('Cotisations sociales : estimation 22 % salariales + 35 % patronales du brut ; vérifier le net exact avec le simulateur URSSAF (mutuelle, ACRE, AT/MP, retraite, DSN).');
         if (pasRate === 0 && salaryNet > 0) warnings.push('PAS fixé à 0 % : l’impôt personnel sur le salaire peut réduire le virement net.');
 
@@ -1635,7 +1637,7 @@
         insurancePlan:'sector',insuranceMonthly:0,
         premisesMode:'home',domiciliationMonthly:0,companyVehicles:0,
         capitalDepositMode:'free',capitalDepositFee:0,formationAdvisorFee:0,
-        filingMode:'auto',filingAnnualFee:44.14,staffCount:0,staffGrossMonthly:0,
+        filingMode:'auto',filingAnnualFee:44.14,payrollRegion:'normal',staffCount:0,staffGrossMonthly:0,
         otherTaxesAnnual: 0, valueAddedAnnual:null, distributionPct: 0, cashStart: 0
       });
       saveCustomBudget();
@@ -1771,6 +1773,8 @@
             [['auto','Tarif de référence : 44,14 €/an'],['custom','Tarif réellement facturé ci-dessous']],'Obligation après approbation ; pour création 2026, premier dépôt généralement l’année suivante.') +
           numberField('Dépôt annuel personnalisé (€ / an)','filingAnnualFee',company.filingAnnualFee===undefined?44.14:company.filingAnnualFee,1,'En mode personnalisé. Référence 44,14 € TTC par correspondance en 2026, tarif en ligne à confirmer.') +
           '<p class="sm:col-span-2 xl:col-span-4 mt-1 font-semibold text-xs text-indigo-900">Salariés éventuels (hors dirigeant)</p>' +
+          selectCompany('Région de paie / taxe apprentissage','payrollRegion',company.payrollRegion || 'normal',
+            [['normal','Métropole hors Alsace-Moselle : 0,68 %'],['alsace','Alsace-Moselle : 0,44 %']],'La taxe est calculée en présence de rémunérations ; exonération salariés apprentis non modélisée.') +
           numberField('Nombre de salariés','staffCount',company.staffCount===undefined?0:company.staffCount,1,'Sans salariés, salaire et mutuelle employeur = 0 €') +
           numberField('Salaire brut par salarié (€ / mois)','staffGrossMonthly',company.staffGrossMonthly===undefined?0:company.staffGrossMonthly,100,'Coût employeur estimé en plus : 40 % du brut + 30 €/mois de mutuelle par salarié') +
           optionalNumber('Valeur ajoutée fiscale annuelle (€) — CVAE','valueAddedAnnual',company.valueAddedAnnual,'Vide = estimation depuis CA et charges pour CA > 500 000 €/an ; saisir la vraie valeur ajoutée de la liasse fiscale si connue.') +
@@ -1877,6 +1881,7 @@
       else if (field === 'insurancePlan') item.insurancePlan = ['sector','none','rc','regulated','building','custom'].includes(event.target.value) ? event.target.value : 'sector';
       else if (field === 'filingMode') item.filingMode = event.target.value === 'custom' ? 'custom' : 'auto';
       else if (field === 'capitalDepositMode') item.capitalDepositMode = ['free','paid','custom'].includes(event.target.value) ? event.target.value : 'free';
+      else if (field === 'payrollRegion') item.payrollRegion = event.target.value === 'alsace' ? 'alsace' : 'normal';
       else if (field === 'previousCA' || field === 'previous2CA' || field === 'valueAddedAnnual') item[field] = event.target.value === '' ? null : safeAmount(event.target.value);
       else if (field === 'createdYear') item.createdYear = Math.round(between(event.target.value, 1900, 2026));
       else if (field === 'distributionPct' || field === 'ownersIndividualsPct') item[field] = between(event.target.value, 0, 100);
