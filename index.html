@@ -882,7 +882,9 @@
       document.getElementById('kpi-aides').textContent = euro(totalAides);
       document.getElementById('kpi-aides-sub').textContent = `Prime : ${primeActivite}€ | APL : ${aplCalculee}€ | Mobili : ${mobiliJeune}€`;
       document.getElementById('kpi-depenses').textContent = euro(totalDepenses);
+      document.getElementById('kpi-depenses-sub').textContent = 'Loyer + vie courante + dépenses personnelles (frais micro inclus dans recettes nettes)';
       document.getElementById('kpi-reste').textContent = euro(resteAVivre);
+      document.getElementById('kpi-reste-sub').textContent = resteAVivre < 0 ? 'Déficit mensuel : dépenses supérieures aux ressources' : 'Solde mensuel restant (simulation)';
 
       // Couleur conditionnelle du reste à vivre
       const kpiResteEl = document.getElementById('kpi-reste');
@@ -965,7 +967,9 @@
         `Abonnements (${c.abosToi}€)`,
         `Reste à Vivre (${Math.max(0, c.resteAVivre)}€)`,
         `Salaires nets SAS (${euro(c.sasSalaryNet || 0)})`,
-        `Dépenses personnalisées (${euro(c.additionalExpensesTotal || 0)})`
+        `Dépenses personnalisées (${euro(c.additionalExpensesTotal || 0)})`,
+        `Frais micro réels (${euro(c.microFrais || 0)})`,
+        `Déficit à financer (${euro(Math.max(0,-c.resteAVivre))})`
       ];
 
       const nodeColors = [
@@ -986,7 +990,9 @@
         '#94a3b8', // Abonnements (Slate light)
         '#10b981', // Reste à Vivre (Emerald)
         '#059669', // Salaires SAS
-        '#e11d48' // Dépenses ajoutées
+        '#e11d48', // Dépenses ajoutées
+        '#a855f7', // Frais professionnels micro
+        '#dc2626' // Besoin de financement
       ];
 
       const sources = [];
@@ -1008,14 +1014,18 @@
         addLink(0, 8, c.salaireToi, 'rgba(99, 102, 241, 0.45)');
       }
 
+      // Répartition exacte du CA micro : charges sociales/IR (dans la limite du CA),
+      // solde vers budget, dépassement financé par le budget, et frais pro distincts.
+      const microTaxes = Math.max(0,c.cotisationsURSSAF+c.impotMensuel);
       if (c.caBrut > 0) {
-        const prelevement = c.cotisationsURSSAF + c.impotMensuel;
-        if (prelevement > 0) {
-          addLink(1, 7, prelevement, 'rgba(239, 68, 68, 0.45)');
-        }
-        if (c.netPocheMicro > 0) {
-          addLink(1, 8, c.netPocheMicro, 'rgba(139, 92, 246, 0.45)');
-        }
+        addLink(1,7,Math.min(c.caBrut,microTaxes),'rgba(239,68,68,0.45)');
+        addLink(1,8,Math.max(0,c.caBrut-microTaxes),'rgba(139,92,246,0.45)');
+      }
+      if (microTaxes > c.caBrut) {
+        addLink(8,7,microTaxes-c.caBrut,'rgba(239,68,68,0.45)');
+      }
+      if ((c.microFrais||0)>0) {
+        addLink(8,18,c.microFrais,'rgba(168,85,247,0.4)');
       }
 
       if (c.missionsToi > 0) {
@@ -1050,6 +1060,9 @@
       if (c.sasSalaryNet > 0) addLink(16, 8, c.sasSalaryNet, 'rgba(16, 185, 129, 0.5)');
       if (c.additionalExpensesTotal > 0) addLink(8, 17, c.additionalExpensesTotal, 'rgba(225, 29, 72, 0.4)');
 
+      // Le déficit n'est pas une rentrée d'argent : il représente un besoin
+      // de financement à combler (épargne antérieure, emprunt, dépenses à réduire).
+      if (c.resteAVivre < 0) addLink(19,8,-c.resteAVivre,'rgba(220,38,38,0.65)');
       // Flux vers le Reste à Vivre
       if (c.resteAVivre > 0) {
         addLink(8, 15, c.resteAVivre, 'rgba(16, 185, 129, 0.6)');
@@ -2008,8 +2021,8 @@ Foyer : ${c.isCouple ? 'En Couple' : 'Seul'}
 ------------------------------------
 RECETTES NETTES : ${c.totalRecettesNet} € / mois
 - Salaire Alternance : ${c.salaireToi} €
-- Micro-entreprise (Net en poche) : ${c.netPocheMicro} € (sur ${c.caBrut}€ brut)
-- Salaires nets SAS / SASU : ${euro(c.sasSalaryNet || 0)} (avant impôt personnel)
+- Micro-entreprise (solde après URSSAF, IR provisionné et frais pro) : ${euro(c.netPocheMicro)} (sur ${euro(c.caBrut)} brut, frais pro ${euro(c.microFrais||0)})
+- Salaires nets SAS / SASU : ${euro(c.sasSalaryNet || 0)} (après PAS simulé)
 - Armée & Pompiers : ${c.missionsToi} € (Exonéré)
 - Prime d'Activité : ${c.primeActivite} €
 - APL Logement : ${c.aplCalculee} €
@@ -2030,7 +2043,7 @@ RESTE À VIVRE (ÉPARGNE LIBRE) : ${euro(c.resteAVivre)} / mois
 CA total de mes SAS : ${euro(c.sasTotalCA || 0)} / mois (pas un revenu personnel)
 Solde estimé conservé en SAS : ${euro(c.sasRetained || 0)} / mois
 Dividendes nets théoriques : ${euro(c.sasDividendTheoretical || 0)} / mois équivalent (exclus du budget)
-NB : aides CAF, coûts sociaux, IS, impôt sur salaires et dividendes estimatifs.
+NB : aides sociales = montants saisis, NON droits calculés ; charges SAS, IS, IR au barème, TVA, revenus sociaux à confirmer.
 ====================================`;
 
       const dummy = document.createElement('textarea');
