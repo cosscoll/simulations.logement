@@ -2285,9 +2285,6 @@
     }
     function exportCustomCSV() {
       const rows = [['Type','Nom','Champ','Valeur','Unité','Fiabilité / remarque']];
-      customBudget.expenses.forEach(function(e) {
-        rows.push(['Dépense',e.name,'Montant',safeAmount(e.amount),e.period==='annual'?'€/an':'€/mois','Saisi par utilisateur']);
-      });
       const p=calculateSasProjection();
       p.companies.forEach(function(c) {
         const n=c.name, add=function(label,value,unit,certainty) {
@@ -2347,21 +2344,13 @@
         add('Trésorerie projetée',c.cashTwelveMonths,'€ fin 12 mois','Simplifié : hors BFR/amortissements');
         c.warnings.forEach(function(w) {rows.push(['Attention',n,'A vérifier','', '',w]);});
       });
-      rows.push(['Budget','Aides','Mode de prise en compte',currentCalc.aidesMode || 'projection','','Projection : non garantie ; accordées : valeurs saisies ; sans aides : 0']);
-      rows.push(['Budget','Aides','Prime d’activité dans les recettes',currentCalc.primeActivite || 0,'€/mois',currentCalc.aidesSource || '']);
-      rows.push(['Budget','Aides','Aide au logement dans les recettes',currentCalc.aplCalculee || 0,'€/mois',currentCalc.aidesSource || '']);
-      rows.push(['Budget','Aides','MOBILI-JEUNE dans les recettes',currentCalc.mobiliJeune || 0,'€/mois',currentCalc.aidesSource || '']);
-      rows.push(['Budget','Aides','Total des aides incluses',currentCalc.totalAides || 0,'€/mois',currentCalc.aidesSource || '']);
-      rows.push(['Budget','Total','Recettes personnelles nettes',currentCalc.totalRecettesNet || 0,'€/mois','Revenus personnels + aides selon le mode sélectionné']);
-      rows.push(['Budget','Total','Dépenses personnelles',currentCalc.totalDepenses || 0,'€/mois','Comprend dépenses personnalisées']);
-      rows.push(['Budget','Total','Reste à vivre',currentCalc.resteAVivre || 0,'€/mois','Simulation']);
       const csv='\uFEFF'+rows.map(function(row) {
         return row.map(function(v) {return '"' + String(v).replace(/"/g,'""')+'"';}).join(';');
       }).join('\r\n');
       const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
       const a=document.createElement('a');
       a.href=url;
-      a.download='simulations-logement-sas-2026.csv';
+      a.download='simulations-sasu-entreprises-2026.csv';
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -2388,9 +2377,9 @@
 
 
 
-    // Bibliothèque de simulations : chaque scénario capture TOUS les contrôles
-    // de revenus, paramètres CAF, dépenses, sociétés et sous-paramètres.
-    // Stockage local uniquement : aucune donnée n'est transmise au dépôt GitHub.
+    // Simulations PERSONNELLES : aucune société n'est enregistrée ici.
+    // Les anciennes bibliothèques mixtes sont transférées vers le stockage SASU
+    // avant leur première migration. Stockage dans le navigateur uniquement.
     const SCENARIOS_KEY = 'simulations-logement-scenarios-v1';
     const SCENARIO_FIELDS = [
       'sel-statut-pro','sel-mode-couple','sel-micro-type','sel-acre','sel-impot',
@@ -2437,8 +2426,7 @@
       });
       return {
         controls: controls,
-        expenses: cloneSimulationData(customBudget.expenses),
-        companies: cloneSimulationData(customBudget.companies)
+        expenses: cloneSimulationData(customBudget.expenses)
       };
     }
     function cleanSimulationSnapshot(data) {
@@ -2457,11 +2445,10 @@
       if (!['projection','confirmed','none'].includes(controls['sel-aides-mode']))
         controls['sel-aides-mode']='projection';
       const expenses = Array.isArray(data && data.expenses) ? data.expenses.slice(0,100).filter(function(x) {return x && typeof x === 'object' && !Array.isArray(x);}) : [];
-      const companies = Array.isArray(data && data.companies) ? data.companies.slice(0,25).filter(function(x) {return x && typeof x === 'object' && !Array.isArray(x);}) : [];
-      return {controls:controls, expenses:cloneSimulationData(expenses), companies:cloneSimulationData(companies).map(migrateSasDefaults2026)};
+      return {controls:controls, expenses:cloneSimulationData(expenses)};
     }
     function defaultSimulationSnapshot() {
-      return cleanSimulationSnapshot({controls:SCENARIO_DEFAULTS, expenses:[], companies:[]});
+      return cleanSimulationSnapshot({controls:SCENARIO_DEFAULTS, expenses:[]});
     }
     function getActiveSavedSimulation() {
       return scenarioStore.simulations.find(function(item){return item.id === scenarioStore.activeId;}) || null;
@@ -2511,8 +2498,8 @@
           if (el) el.value = clean.controls[id];
         });
         customBudget.expenses = clean.expenses;
-        customBudget.companies = clean.companies;
-        const allIds = clean.expenses.concat(clean.companies).map(function(x) {return Number(x.id)||0;});
+        // Ne PAS modifier les entreprises en changeant de scénario personnel.
+        const allIds = clean.expenses.map(function(x) {return Number(x.id)||0;});
         customNextId = Math.max(customNextId,1+Math.max(0,...allIds));
         saveCustomBudget(); // Maintient la compatibilité avec le stockage historique.
         renderCustomForms();
@@ -2732,7 +2719,248 @@
       });
       window.addEventListener('pagehide',function(){flushScenarioAutosave();});
     }
-    window.addEventListener('DOMContentLoaded',initializeScenarioManager);
+
+    // ---------------------------------------------
+    // Gestion INDEPENDANTE des scénarios SASU
+    // Stockage séparé du budget personnel. Migration à partir des anciennes
+    // simulations mixtes et du stockage historique, sans perte de données.
+    // ---------------------------------------------
+    const SAS_SCENARIOS_KEY='simulations-sasu-scenarios-v1';
+    let sasScenarioReady=false;
+    let sasScenarioLoading=false;
+    let sasSaveTimeout=null;
+    let sasScenarioStore={version:1,activeId:null,simulations:[]};
+
+    function cleanSasCompanies(input) {
+      return (Array.isArray(input)?input:[]).slice(0,25).filter(function(item) {
+        return item && typeof item==='object' && !Array.isArray(item);
+      }).map(function(item){
+        return migrateSasDefaults2026(cloneSimulationData(item));
+      });
+    }
+    function activeSasSimulation() {
+      return sasScenarioStore.simulations.find(function(item){return item.id===sasScenarioStore.activeId;})||null;
+    }
+    function notifySasScenario(message,problem) {
+      const el=document.getElementById('sas-scenario-status');
+      if(el){el.textContent=message;el.className=problem?'text-xs font-semibold text-rose-700':'text-xs text-slate-600';}
+    }
+    function saveSasScenarioStore() {
+      try {
+        localStorage.setItem(SAS_SCENARIOS_KEY,JSON.stringify(sasScenarioStore));
+        return true;
+      }catch(error){
+        notifySasScenario('Stockage SASU indisponible : exporte les simulations au format JSON.',true);
+        return false;
+      }
+    }
+    function renderSasScenarioMenu() {
+      const select=document.getElementById('sas-scenario-select');
+      const name=document.getElementById('sas-scenario-name');
+      const count=document.getElementById('sas-scenario-count');
+      if(!select||!name||!count)return;
+      select.innerHTML=sasScenarioStore.simulations.map(function(item){
+        return '<option value="'+safeMarkup(item.id)+'"'+(item.id===sasScenarioStore.activeId?' selected':'')+'>'+
+          safeMarkup(item.name)+' · '+safeMarkup(formatScenarioDate(item.updatedAt))+'</option>';
+      }).join('');
+      select.value=sasScenarioStore.activeId||'';
+      const active=activeSasSimulation();
+      name.value=active?active.name:'';
+      count.textContent=sasScenarioStore.simulations.length+' simulation(s) SASU';
+    }
+    function applySasSimulation(simulation) {
+      sasScenarioLoading=true;
+      try {
+        customBudget.companies=cleanSasCompanies(simulation&&simulation.companies);
+        customNextId=Math.max(customNextId,1+Math.max(0,...customBudget.companies.map(function(x){return Number(x.id)||0;})));
+        saveCustomBudget();
+        renderCustomForms();
+        refreshSasuSimulation();
+        // Ne jamais appeler updateSimulation ici : budget du foyer inchangé.
+      }finally{sasScenarioLoading=false;}
+    }
+    function saveActiveSasSimulation(manual) {
+      if(!sasScenarioReady||sasScenarioLoading)return false;
+      if(sasSaveTimeout!==null){clearTimeout(sasSaveTimeout);sasSaveTimeout=null;}
+      const active=activeSasSimulation();if(!active)return false;
+      const name=document.getElementById('sas-scenario-name').value.trim().slice(0,80);
+      if(name)active.name=name;
+      active.companies=cleanSasCompanies(customBudget.companies);
+      active.updatedAt=new Date().toISOString();
+      const saved=saveSasScenarioStore();
+      renderSasScenarioMenu();
+      if(saved)notifySasScenario((manual?'Simulation SASU enregistrée':'Sauvegarde automatique SASU')+' · '+formatScenarioDate(active.updatedAt));
+      return saved;
+    }
+    function scheduleSasScenarioAutosave() {
+      if(!sasScenarioReady||sasScenarioLoading)return;
+      if(sasSaveTimeout!==null)clearTimeout(sasSaveTimeout);
+      sasSaveTimeout=setTimeout(function(){sasSaveTimeout=null;saveActiveSasSimulation(false);},250);
+    }
+    function flushSasScenarioAutosave() {
+      if(sasSaveTimeout!==null){clearTimeout(sasSaveTimeout);sasSaveTimeout=null;}
+      saveActiveSasSimulation(false);
+    }
+    function switchSasSimulation(id) {
+      if(!sasScenarioReady||id===sasScenarioStore.activeId)return;
+      const selected=sasScenarioStore.simulations.find(function(item){return item.id===id;});
+      if(!selected)return;
+      flushSasScenarioAutosave();
+      sasScenarioStore.activeId=selected.id;
+      applySasSimulation(selected);
+      saveSasScenarioStore();
+      renderSasScenarioMenu();
+      notifySasScenario('Simulation SASU reprise : '+selected.name);
+    }
+    function newSasSimulation() {
+      if(!sasScenarioReady)return;
+      if(sasScenarioStore.simulations.length>=50){notifySasScenario('Limite de 50 simulations SASU.',true);return;}
+      flushSasScenarioAutosave();
+      const stamp=new Date().toISOString();
+      const item={id:newSimulationId(),name:'Nouvelle simulation SASU '+(sasScenarioStore.simulations.length+1),
+        createdAt:stamp,updatedAt:stamp,companies:[]};
+      sasScenarioStore.simulations.unshift(item);sasScenarioStore.activeId=item.id;
+      applySasSimulation(item);saveSasScenarioStore();renderSasScenarioMenu();
+      notifySasScenario('Simulation SASU vierge créée. Les autres restent enregistrées.');
+    }
+    function duplicateSasSimulation() {
+      if(!sasScenarioReady||sasScenarioStore.simulations.length>=50)return;
+      flushSasScenarioAutosave();
+      const original=activeSasSimulation();if(!original)return;
+      const stamp=new Date().toISOString();
+      const item={id:newSimulationId(),name:('Copie de '+original.name).slice(0,80),
+        createdAt:stamp,updatedAt:stamp,companies:cleanSasCompanies(original.companies)};
+      sasScenarioStore.simulations.unshift(item);sasScenarioStore.activeId=item.id;
+      applySasSimulation(item);saveSasScenarioStore();renderSasScenarioMenu();
+      notifySasScenario('Copie SASU indépendante créée.');
+    }
+    function deleteSasSimulation() {
+      if(!sasScenarioReady)return;
+      const active=activeSasSimulation();if(!active)return;
+      if(!window.confirm('Supprimer la simulation SASU « '+active.name+' » ? Les simulations personnelles seront conservées.'))return;
+      if(sasSaveTimeout!==null){clearTimeout(sasSaveTimeout);sasSaveTimeout=null;}
+      sasScenarioStore.simulations=sasScenarioStore.simulations.filter(function(item){return item.id!==active.id;});
+      if(!sasScenarioStore.simulations.length){
+        const stamp=new Date().toISOString();
+        sasScenarioStore.simulations.push({id:newSimulationId(),name:'Mes SASU',createdAt:stamp,updatedAt:stamp,companies:[]});
+      }
+      sasScenarioStore.activeId=sasScenarioStore.simulations[0].id;
+      applySasSimulation(sasScenarioStore.simulations[0]);saveSasScenarioStore();renderSasScenarioMenu();
+      notifySasScenario('Simulation SASU supprimée.');
+    }
+    function exportSasSimulations() {
+      if(!sasScenarioReady)return;
+      flushSasScenarioAutosave();
+      const payload={format:'simulations-sasu',version:1,exportedAt:new Date().toISOString(),
+        activeId:sasScenarioStore.activeId,simulations:sasScenarioStore.simulations};
+      const url=URL.createObjectURL(new Blob([JSON.stringify(payload,null,2)],{type:'application/json;charset=utf-8'}));
+      const link=document.createElement('a');link.href=url;
+      link.download='mes-simulations-sasu-'+new Date().toISOString().slice(0,10)+'.json';
+      document.body.appendChild(link);link.click();link.remove();
+      setTimeout(function(){URL.revokeObjectURL(url);},0);
+      notifySasScenario('Export JSON SASU créé : sauvegarde indépendante du foyer.');
+    }
+    function mergeImportedSasSimulations(raw) {
+      if(!raw||raw.version!==1||!Array.isArray(raw.simulations)||
+         !['simulations-sasu','simulations-logement'].includes(raw.format))
+        throw new Error('Fichier invalide : export de simulations SASU ou ancien fichier mixte requis.');
+      if(raw.simulations.length>50)throw new Error('Maximum 50 simulations dans le fichier.');
+      const free=Math.max(0,50-sasScenarioStore.simulations.length);
+      const imported=raw.simulations.slice(0,free).map(function(item){
+        const companies=raw.format==='simulations-sasu'?item&&item.companies:
+          item&&item.snapshot&&item.snapshot.companies;
+        if(!Array.isArray(companies))return null;
+        const stamp=new Date().toISOString();
+        return {id:newSimulationId(),name:String(item.name||'Import SASU').slice(0,80),
+          createdAt:stamp,updatedAt:stamp,companies:cleanSasCompanies(companies)};
+      }).filter(Boolean);
+      if(!imported.length)throw new Error('Aucune simulation SASU trouvée, ou capacité atteinte.');
+      flushSasScenarioAutosave();
+      sasScenarioStore.simulations.unshift(...imported);
+      sasScenarioStore.activeId=imported[0].id;
+      applySasSimulation(imported[0]);saveSasScenarioStore();renderSasScenarioMenu();
+      notifySasScenario(imported.length+' simulation(s) SASU importée(s). Les autres sont conservées.');
+      return imported.length;
+    }
+    function importSasSimulationFile(file) {
+      if(!file)return;
+      if(file.size>4*1024*1024){notifySasScenario('Fichier trop volumineux : 4 Mo maximum.',true);return;}
+      const reader=new FileReader();
+      reader.onload=function(){
+        try{mergeImportedSasSimulations(JSON.parse(String(reader.result)));}
+        catch(error){notifySasScenario('Import SASU impossible : '+error.message,true);}
+      };
+      reader.onerror=function(){notifySasScenario('Lecture du fichier SASU impossible.',true);};
+      reader.readAsText(file,'UTF-8');
+    }
+    function initializeSasScenarioManager() {
+      if(sasScenarioReady)return;
+      let existing=null;
+      try{existing=JSON.parse(localStorage.getItem(SAS_SCENARIOS_KEY)||'null');}catch(e){}
+      if(existing&&existing.version===1&&Array.isArray(existing.simulations)){
+        sasScenarioStore.simulations=existing.simulations.slice(0,50).filter(function(item){
+          return item&&typeof item.id==='string'&&Array.isArray(item.companies);
+        }).map(function(item){
+          return {id:item.id,name:String(item.name||'Simulation SASU').slice(0,80),
+            createdAt:item.createdAt||new Date().toISOString(),
+            updatedAt:item.updatedAt||new Date().toISOString(),
+            companies:cleanSasCompanies(item.companies)};
+        });
+        sasScenarioStore.activeId=existing.activeId;
+      }
+      if(!sasScenarioStore.simulations.length){
+        // Migrer les listes de sociétés des scénarios historiques AVANT la
+        // réécriture des simulations personnelles.
+        let previous=null;
+        try{previous=JSON.parse(localStorage.getItem(SCENARIOS_KEY)||'null');}catch(e){}
+        if(previous&&Array.isArray(previous.simulations)){
+          previous.simulations.slice(0,50).forEach(function(item){
+            const oldCompanies=item&&item.snapshot&&item.snapshot.companies;
+            if(!Array.isArray(oldCompanies)||!oldCompanies.length)return;
+            sasScenarioStore.simulations.push({
+              id:newSimulationId(),name:('SASU — '+String(item.name||'Simulation historique')).slice(0,80),
+              createdAt:item.createdAt||new Date().toISOString(),
+              updatedAt:item.updatedAt||new Date().toISOString(),
+              companies:cleanSasCompanies(oldCompanies)
+            });
+          });
+        }
+        if(!sasScenarioStore.simulations.length&&customBudget.companies.length){
+          const stamp=new Date().toISOString();
+          sasScenarioStore.simulations.push({id:newSimulationId(),name:'Mes anciennes SASU',
+            createdAt:stamp,updatedAt:stamp,companies:cleanSasCompanies(customBudget.companies)});
+        }
+        if(!sasScenarioStore.simulations.length){
+          const stamp=new Date().toISOString();
+          sasScenarioStore.simulations.push({id:newSimulationId(),name:'Mes SASU',
+            createdAt:stamp,updatedAt:stamp,companies:[]});
+        }
+      }
+      if(!sasScenarioStore.simulations.some(function(item){return item.id===sasScenarioStore.activeId;}))
+        sasScenarioStore.activeId=sasScenarioStore.simulations[0].id;
+      const active=activeSasSimulation();
+      applySasSimulation(active);
+      sasScenarioReady=true;
+      saveSasScenarioStore();renderSasScenarioMenu();
+      notifySasScenario('Simulations SASU récupérées · Dernière sauvegarde : '+formatScenarioDate(active.updatedAt));
+      const select=document.getElementById('sas-scenario-select');
+      const name=document.getElementById('sas-scenario-name');
+      const importInput=document.getElementById('sas-scenario-import');
+      select.addEventListener('change',function(){switchSasSimulation(select.value);});
+      name.addEventListener('input',scheduleSasScenarioAutosave);
+      importInput.addEventListener('change',function(){
+        if(importInput.files&&importInput.files[0])importSasSimulationFile(importInput.files[0]);
+        importInput.value='';
+      });
+      window.addEventListener('pagehide',flushSasScenarioAutosave);
+    }
+    window.addEventListener('DOMContentLoaded',function(){
+      initializeSasScenarioManager();
+      initializeScenarioManager();
+      if(window.location&&window.location.hash==='#sasu')switchSimulator('sasu');
+      else switchSimulator('personal');
+    });
+
 
     // Copie du résumé vers le presse-papier
     function copySummary() {
