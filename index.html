@@ -308,6 +308,15 @@
       </div>
     </section>
 
+    <section id="finance-alerts-panel" class="bg-amber-50 rounded-2xl border border-amber-200 p-4" aria-labelledby="finance-alerts-title">
+      <div class="flex flex-wrap justify-between gap-2 items-center">
+        <h2 id="finance-alerts-title" class="text-sm font-bold text-amber-950">Fiabilité de cette simulation</h2>
+        <a class="text-xs underline font-semibold text-indigo-800" href="https://github.com/cosscoll/simulations.logement/blob/main/AUDIT_CALCULS_2026.md" target="_blank" rel="noopener noreferrer">Consulter l'audit des calculs 2026</a>
+      </div>
+      <ul id="finance-alerts" class="list-disc list-inside mt-2 text-xs text-amber-950 space-y-1" aria-live="polite">
+        <li>Les montants sont des simulations : vérifier les aides, impôts et cotisations applicables.</li>
+      </ul>
+    </section>
     <!-- DIAGRAMME SANKEY EN FLUX (PLOTLY) -->
     <div class="bg-white rounded-2xl border border-slate-200/80 p-4 sm:p-5 shadow-sm overflow-hidden">
       <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
@@ -876,6 +885,35 @@
         additionalExpensesTotal: additionalExpensesTotal
       };
 
+      // Indicateurs de fiabilité : un résultat dépendant d'un choix non vérifié
+      // ne doit jamais être présenté comme un droit acquis.
+      const auditWarnings = [];
+      if (caBrut > 0 && acreOption !== 'none')
+        auditWarnings.push('ACRE choisie : accorder la réduction seulement si l’Urssaf l’a acceptée et que la période de droit est toujours ouverte.');
+      if (caBrut > 0 && impotOption === 'vfl')
+        auditWarnings.push('Versement libératoire : l’éligibilité dépend notamment du RFR du foyer et d’une option en vigueur.');
+      if (caBrut > 0 && impotOption === 'bareme' && provisionIRBar === 0)
+        auditWarnings.push('IR au barème : aucune provision saisie ; le montant personnel peut être surestimé.');
+      if (caBrut > 0 && microFrais === 0)
+        auditWarnings.push('Micro-entreprise : aucun frais professionnel déclaré ; confirmer qu’il n’existe pas de dépenses d’activité.');
+      if (primeActivite > 0 || aplCalculee > 0 || mobiliJeune > 0)
+        auditWarnings.push('Aides : montants saisis, pas de droits recalculés ; vérifier les échéances et changements de ressources.');
+      if (mobiliDemande > mobiliJeune && !isPostMaster)
+        auditWarnings.push('MOBILI-JEUNE : montant plafonné au reste du loyer après aide logement, et à 100 €.');
+      if (sasProjection.companies.length) {
+        auditWarnings.push('SAS/SASU : les cotisations salariales et les frais de paie restent approximatifs. Valider via l’Urssaf et le comptable.');
+        const unknownCFE = sasProjection.companies.some(function(company) {
+          return company.createdYear < 2026 && company.cfeAnnual > 0 &&
+            company.cfeReason.indexOf('Provision') >= 0;
+        });
+        if (unknownCFE) auditWarnings.push('CFE : budget de référence non officiel ; utiliser l’avis fiscal ou le taux local pour fiabiliser.');
+      }
+      if (resteAVivre < 0)
+        auditWarnings.push('Déficit à financer : les dépenses simulées dépassent les revenus encaissables.');
+      if (!auditWarnings.length)
+        auditWarnings.push('Le budget additionne des valeurs saisies. Les droits CAF et les impôts réels ne sont pas calculés automatiquement.');
+      const alertsNode=document.getElementById('finance-alerts');
+      alertsNode.innerHTML=auditWarnings.map(function(message){return '<li>'+safeMarkup(message)+'</li>';}).join('');
       // Mise à jour de l'affichage des KPIs
       document.getElementById('kpi-recettes').textContent = euro(totalRecettesNet);
       document.getElementById('kpi-recettes-sub').textContent = sasProjection.companies.length ? 'Salaire + micro + SAS (après PAS) + missions + aides estimées' : 'Salaire + micro + missions + aides estimées';
