@@ -768,7 +768,9 @@
       // ==========================================
       // 2. CALCUL PRIME D'ACTIVITÉ 2026 (Décret 2026-222)
       // ==========================================
-      const revProToi = salaireToi + revenuNetCAF_Micro;
+      const sasProjection = calculateSasProjection();
+      const additionalExpensesTotal = getAdditionalExpensesTotal();
+      const revProToi = salaireToi + revenuNetCAF_Micro + sasProjection.totalSalaryNet;
       const revProCopine = isCouple ? revenuCopine : 0;
       const revFoyerCAF = revProToi + revProCopine;
 
@@ -810,7 +812,7 @@
       let aplCalculee = 0;
       if (!isPostMaster) {
         // En alternance : salaire d'apprenti pris en compte avec abattement
-        const impactCAF = (Math.max(0, salaireToi - 1170) * 0.10) + (revenuNetCAF_Micro * 0.12) + (revProCopine * 0.10);
+        const impactCAF = (Math.max(0, salaireToi - 1170) * 0.10) + (revenuNetCAF_Micro * 0.12) + (revProCopine * 0.10) + (sasProjection.totalSalaryNet * 0.11);
         aplCalculee = Math.max(0, Math.round(baseAPL - impactCAF));
       } else {
         // Post-Master : dégressivité directe sur les revenus du foyer
@@ -822,10 +824,10 @@
       // 4. SYNTHÈSE TOTALE DES BUDGETS
       // ==========================================
       const totalAides = primeActivite + aplCalculee + mobiliJeune;
-      const totalRecettesNet = salaireToi + netPocheMicro + missionsToi + (isCouple ? revenuCopine : 0) + totalAides;
+      const totalRecettesNet = salaireToi + netPocheMicro + missionsToi + (isCouple ? revenuCopine : 0) + sasProjection.totalSalaryNet + totalAides;
       
       const totalDepenses = loyer + coursesToi + facturesToi + sortiesToi + moto + abosToi +
-                            (isCouple ? (coursesCopine + facturesCopine + sortiesCopine) : 0);
+                            (isCouple ? (coursesCopine + facturesCopine + sortiesCopine) : 0) + additionalExpensesTotal;
 
       const resteAVivre = totalRecettesNet - totalDepenses;
 
@@ -836,15 +838,20 @@
         missionsToi, revenuCopine, primeActivite, aplCalculee, mobiliJeune,
         loyer, coursesToi, facturesToi, sortiesToi, moto, abosToi,
         coursesCopine, facturesCopine, sortiesCopine, isCouple, isPostMaster,
-        tauxURSSAF, bonifToi, bonifCopine, revProToi
+        tauxURSSAF, bonifToi, bonifCopine, revProToi,
+        sasSalaryNet: sasProjection.totalSalaryNet,
+        sasTotalCA: sasProjection.totalCA,
+        sasRetained: sasProjection.totalRetained,
+        sasDividendTheoretical: sasProjection.totalDividendNet,
+        additionalExpensesTotal: additionalExpensesTotal
       };
 
       // Mise à jour de l'affichage des KPIs
-      document.getElementById('kpi-recettes').textContent = totalRecettesNet.toLocaleString('fr-FR') + ' €';
-      document.getElementById('kpi-aides').textContent = totalAides.toLocaleString('fr-FR') + ' €';
+      document.getElementById('kpi-recettes').textContent = euro(totalRecettesNet);
+      document.getElementById('kpi-aides').textContent = euro(totalAides);
       document.getElementById('kpi-aides-sub').textContent = `Prime : ${primeActivite}€ | APL : ${aplCalculee}€ | Mobili : ${mobiliJeune}€`;
-      document.getElementById('kpi-depenses').textContent = totalDepenses.toLocaleString('fr-FR') + ' €';
-      document.getElementById('kpi-reste').textContent = resteAVivre.toLocaleString('fr-FR') + ' €';
+      document.getElementById('kpi-depenses').textContent = euro(totalDepenses);
+      document.getElementById('kpi-reste').textContent = euro(resteAVivre);
 
       // Couleur conditionnelle du reste à vivre
       const kpiResteEl = document.getElementById('kpi-reste');
@@ -884,6 +891,7 @@
       // ==========================================
       // 5. RENDU DU DIAGRAMME SANKEY (PLOTLY)
       // ==========================================
+      renderCustomSummary(sasProjection, additionalExpensesTotal);
       renderSankeyChart();
     }
 
@@ -925,7 +933,9 @@
         `Sorties (${c.sortiesToi + c.sortiesCopine}€)`,
         `Moto (${c.moto}€)`,
         `Abonnements (${c.abosToi}€)`,
-        `Reste à Vivre (${Math.max(0, c.resteAVivre)}€)`
+        `Reste à Vivre (${Math.max(0, c.resteAVivre)}€)`,
+        `Salaires nets SAS (${euro(c.sasSalaryNet || 0)})`,
+        `Dépenses personnalisées (${euro(c.additionalExpensesTotal || 0)})`
       ];
 
       const nodeColors = [
@@ -944,7 +954,9 @@
         '#ec4899', // Sorties (Pink)
         '#64748b', // Moto (Slate)
         '#94a3b8', // Abonnements (Slate light)
-        '#10b981'  // Reste à Vivre (Emerald)
+        '#10b981', // Reste à Vivre (Emerald)
+        '#059669', // Salaires SAS
+        '#e11d48' // Dépenses ajoutées
       ];
 
       const sources = [];
@@ -1003,6 +1015,10 @@
       addLink(8, 12, c.sortiesToi + c.sortiesCopine, 'rgba(236, 72, 153, 0.4)');
       addLink(8, 13, c.moto, 'rgba(100, 116, 139, 0.4)');
       addLink(8, 14, c.abosToi, 'rgba(148, 163, 184, 0.4)');
+
+      // Flux supplémentaires dans le budget personnel.
+      if (c.sasSalaryNet > 0) addLink(16, 8, c.sasSalaryNet, 'rgba(16, 185, 129, 0.5)');
+      if (c.additionalExpensesTotal > 0) addLink(8, 17, c.additionalExpensesTotal, 'rgba(225, 29, 72, 0.4)');
 
       // Flux vers le Reste à Vivre
       if (c.resteAVivre > 0) {
@@ -1316,6 +1332,7 @@ Foyer : ${c.isCouple ? 'En Couple' : 'Seul'}
 RECETTES NETTES : ${c.totalRecettesNet} € / mois
 - Salaire Alternance : ${c.salaireToi} €
 - Micro-entreprise (Net en poche) : ${c.netPocheMicro} € (sur ${c.caBrut}€ brut)
+- Salaires nets SAS / SASU : ${euro(c.sasSalaryNet || 0)} (avant impôt personnel)
 - Armée & Pompiers : ${c.missionsToi} € (Exonéré)
 - Prime d'Activité : ${c.primeActivite} €
 - APL Logement : ${c.aplCalculee} €
@@ -1329,8 +1346,14 @@ TOTAL DÉPENSES : ${c.totalDepenses} € / mois
 - Sorties & Plaisir : ${c.sortiesToi + c.sortiesCopine} €
 - Moto : ${c.moto} €
 - Abonnements : ${c.abosToi} €
+- Dépenses personnalisées : ${euro(c.additionalExpensesTotal || 0)}
 ------------------------------------
-RESTE À VIVRE (ÉPARGNE LIBRE) : ${c.resteAVivre} € / mois
+RESTE À VIVRE (ÉPARGNE LIBRE) : ${euro(c.resteAVivre)} / mois
+------------------------------------
+CA total de mes SAS : ${euro(c.sasTotalCA || 0)} / mois (pas un revenu personnel)
+Solde estimé conservé en SAS : ${euro(c.sasRetained || 0)} / mois
+Dividendes nets théoriques : ${euro(c.sasDividendTheoretical || 0)} / mois équivalent (exclus du budget)
+NB : aides CAF, coûts sociaux, IS, impôt sur salaires et dividendes estimatifs.
 ====================================`;
 
       const dummy = document.createElement('textarea');
