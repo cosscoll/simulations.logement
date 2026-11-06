@@ -2043,7 +2043,12 @@
         add('Trésorerie projetée',c.cashTwelveMonths,'€ fin 12 mois','Simplifié : hors BFR/amortissements');
         c.warnings.forEach(function(w) {rows.push(['Attention',n,'A vérifier','', '',w]);});
       });
-      rows.push(['Budget','Total','Recettes personnelles nettes',currentCalc.totalRecettesNet || 0,'€/mois','Montants personnels + aides estimées']);
+      rows.push(['Budget','Aides','Mode de prise en compte',currentCalc.aidesMode || 'projection','','Projection : non garantie ; accordées : valeurs saisies ; sans aides : 0']);
+      rows.push(['Budget','Aides','Prime d’activité dans les recettes',currentCalc.primeActivite || 0,'€/mois',currentCalc.aidesSource || '']);
+      rows.push(['Budget','Aides','Aide au logement dans les recettes',currentCalc.aplCalculee || 0,'€/mois',currentCalc.aidesSource || '']);
+      rows.push(['Budget','Aides','MOBILI-JEUNE dans les recettes',currentCalc.mobiliJeune || 0,'€/mois',currentCalc.aidesSource || '']);
+      rows.push(['Budget','Aides','Total des aides incluses',currentCalc.totalAides || 0,'€/mois',currentCalc.aidesSource || '']);
+      rows.push(['Budget','Total','Recettes personnelles nettes',currentCalc.totalRecettesNet || 0,'€/mois','Revenus personnels + aides selon le mode sélectionné']);
       rows.push(['Budget','Total','Dépenses personnelles',currentCalc.totalDepenses || 0,'€/mois','Comprend dépenses personnalisées']);
       rows.push(['Budget','Total','Reste à vivre',currentCalc.resteAVivre || 0,'€/mois','Simulation']);
       const csv='\uFEFF'+rows.map(function(row) {
