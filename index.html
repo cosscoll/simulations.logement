@@ -1062,7 +1062,7 @@
         ? 'Dont '+euro(totalAides)+' d’aides estimées (non garanties)'
         : aideConfirmee ? 'Aides accordées saisies incluses'
         : 'Hors aides sociales';
-      document.getElementById('kpi-recettes-sub').textContent = sasProjection.companies.length ? 'Salaire + micro + SAS (après PAS) + missions + aides estimées' : 'Salaire + micro + missions + aides estimées';
+      // L'espace personnel reste strictement indépendant de tout scénario SASU.
       document.getElementById('kpi-aides').textContent = euro(totalAides);
       document.getElementById('kpi-aides-sub').textContent = aidesSource+' · Prime '+euro(primeActivite)+' · Logement '+euro(aplCalculee)+' · Mobili '+euro(mobiliJeune);
       document.getElementById('kpi-depenses').textContent = euro(totalDepenses);
