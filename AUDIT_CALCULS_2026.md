@@ -40,7 +40,7 @@ Les résultats restent dépendants de données renseignées et de conventions de
 | Formalités SASU / SAS | 33,83 € RCS ; 19,33 € bénéficiaires ; annonces 142/199 € HT en métropole | Coûts de base en une seule fois | Frais annexes non couverts |
 | Réserve légale | Dotation 5 % jusqu'à 10 % du capital | Calcul si capital renseigné | Correct sous hypothèses |
 | Dividendes | PFU 31,4 % en 2026, ou choix du barème | Projection PFU et distribution hypothétique | Pas une distribution réelle |
-| CVAE | Déclarations dès 152 500 € ; assujettissement potentiel dès 500 000 € | Alerte, montant **non calculé** | À vérifier si CA élevé |
+| CVAE | Déclarations dès 152 500 € ; assujettissement potentiel dès 500 000 € | Montant **estimé** à partir de la VA fiscale saisie ou, à défaut, d'une approximation CA - charges | **Non exact** sans VA de comptabilité et vérification d'exonérations |
 
 ## Exemples mathématiques de contrôle
 
@@ -50,6 +50,31 @@ Les résultats restent dépendants de données renseignées et de conventions de
 - **SASU sans salaire** : coût de paie du président **0 €**, CFE **0 €** si société créée en 2026, sous réserve des éventuels coûts contractuels ou professionnels.
 - **IS sur 50 000 € de bénéfice imposable, conditions du taux réduit réunies** : 42 500 × 15 % + 7 500 × 25 % = **8 250 €** ; taux normal uniquement = **12 500 €**.
 - **Taxe sur les salaires** : montant brut de base × 4,25 %, puis suppléments de 4,25 % et 9,35 % dans les tranches supérieures ; décote et exonérations conditionnelles. Attention : barème publié pour les salaires 2025 imposés en 2026, et non garantie de paie 2026.
+
+## Actualisation : frais de fonctionnement et obligations SASU (6 novembre 2026)
+
+La version du simulateur précise désormais :
+- **Banque :** dépôt du capital obligatoire lors de la création, abonnement commercial à 0/9/22 €/mois selon le profil retenu ou montant réel personnalisé. Les tarifs sont des **hypothèses**.
+- **Comptabilité :** tenue comptable, établissement et dépôt des comptes obligatoires, expert-comptable **facultatif**. Choix autonome (0 € de prestation), logiciel (18 €/mois), expert (95 €/mois) ou valeur réelle.
+- **Dépôt des comptes :** 44,14 € pris comme **tarif de référence par correspondance en 2026**, avec une première échéance habituellement après la clôture du premier exercice. Le canal et la date réels priment.
+- **Assurances :** RC activité selon profession, assurance local loué/véhicule conditionnelle, mutuelle salariés selon situation ; montants de référence à remplacer par devis.
+- **Frais de création facultatifs :** frais de service de dépôt de capital et formalités assistées, distingués de l'apport en capital, **qui n'est pas une charge déductible**.
+- **Paie :** salariés éventuels, charges patronales et mutuelle estimatives ; taxe d'apprentissage ajoutée à 0,68 % (ou 0,44 % en Alsace-Moselle), sous réserve d'exonérations et de la DSN.
+- **CVAE :** calcul indicatif via le barème 2026 avec valeur ajoutée fiscale saisie ou estimée. Le CA seul ne suffit pas à déterminer exactement cette taxe.
+- **TVA des prestataires :** TVA sur comptabilité et domiciliation supposée à 20 % ; TVA non récupérable traitée en charge pendant la franchise et récupérée pendant les mois imposables lorsque la dépense est éligible.
+
+Ces améliorations n'apportent **aucune certification fiscale** ; les hypothèses de tarif bancaire, local, expert-comptable, assurance et coût salarial n'ont pas de montant légal uniforme. Tous ces coûts doivent rester révisables.
+
+Voir [la documentation détaillée et les exemples de calcul](SASU_CALCULS_AUTOMATIQUES_2026.md).
+
+### Sources complémentaires
+
+- [Dépôt annuel des comptes](https://entreprendre.service-public.gouv.fr/vosdroits/F31214)
+- [Tarifs de dépôt Infogreffe](https://www.infogreffe.fr/tarifs-formalites)
+- [Dépôt du capital social](https://entreprendre.service-public.gouv.fr/vosdroits/F32333)
+- [Assurances de la société](https://entreprendre.service-public.gouv.fr/vosdroits/F37365)
+- [Taxe d'apprentissage](https://entreprendre.service-public.gouv.fr/vosdroits/F22574)
+- [CVAE](https://entreprendre.service-public.gouv.fr/vosdroits/F23546)
 
 ## Limites identifiées — à ne pas présenter comme des calculs exacts
 
