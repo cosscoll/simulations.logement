@@ -774,6 +774,28 @@
     // Variables globales
     let currentCalc = {};
 
+    function switchSimulator(area) {
+      const isSasu=area==='sasu';
+      const personal=document.getElementById('personal-workspace');
+      const business=document.getElementById('sasu-workspace');
+      if (!personal||!business) return;
+      personal.classList.toggle('hidden',isSasu);
+      business.classList.toggle('hidden',!isSasu);
+      document.getElementById('personal-kpis').classList.toggle('hidden',isSasu);
+      document.getElementById('personal-presets').classList.toggle('hidden',isSasu);
+      const tabPersonal=document.getElementById('tab-personal');
+      const tabSasu=document.getElementById('tab-sasu');
+      tabPersonal.setAttribute('aria-pressed',String(!isSasu));
+      tabSasu.setAttribute('aria-pressed',String(isSasu));
+      tabPersonal.className='px-4 py-2.5 rounded-xl text-sm font-bold '+
+        (!isSasu?'bg-indigo-600 text-white shadow-sm':'bg-slate-100 text-slate-700');
+      tabSasu.className='px-4 py-2.5 rounded-xl text-sm font-bold '+
+        (isSasu?'bg-indigo-600 text-white shadow-sm':'bg-slate-100 text-slate-700');
+      if(isSasu) refreshSasuSimulation();
+      else if (typeof Plotly!=='undefined' && typeof currentCalc.totalRecettesNet==='number')
+        renderSankeyChart();
+    }
+
     // Initialisation au chargement
     window.addEventListener('DOMContentLoaded', () => {
       updateSimulation();
@@ -940,9 +962,10 @@
       // ==========================================
       // 2. PRIME D'ACTIVITÉ : ordre de grandeur NON OFFICIEL, hors budget
       // ==========================================
-      const sasProjection = calculateSasProjection();
+      // Les sociétés ont désormais leur propre espace et des scénarios séparés.
+      // Ne jamais mélanger une projection de salaire / de CA SASU au foyer personnel.
       const additionalExpensesTotal = getAdditionalExpensesTotal();
-      const revProToi = salaireToi + revenuNetCAF_Micro + sasProjection.totalSalaryBeforePAS;
+      const revProToi = salaireToi + revenuNetCAF_Micro;
       const revProCopine = isCouple ? revenuCopine : 0;
       const revFoyerCAF = revProToi + revProCopine;
       let isEligiblePrime = true;
@@ -989,7 +1012,7 @@
       // 4. SYNTHÈSE TOTALE DES BUDGETS
       // ==========================================
       const totalAides = primeActivite + aplCalculee + mobiliJeune;
-      const totalRecettesNet = salaireToi + netPocheMicro + missionsToi + (isCouple ? revenuCopine : 0) + sasProjection.totalSalaryNet + totalAides;
+      const totalRecettesNet = salaireToi + netPocheMicro + missionsToi + (isCouple ? revenuCopine : 0) + totalAides;
       
       const totalDepenses = loyer + coursesToi + facturesToi + sortiesToi + moto + abosToi +
                             (isCouple ? (coursesCopine + facturesCopine + sortiesCopine) : 0) + additionalExpensesTotal;
@@ -1005,10 +1028,7 @@
         loyer, coursesToi, facturesToi, sortiesToi, moto, abosToi,
         coursesCopine, facturesCopine, sortiesCopine, isCouple, isPostMaster,
         tauxURSSAF, bonifToi, bonifCopine, revProToi,
-        sasSalaryNet: sasProjection.totalSalaryNet,
-        sasTotalCA: sasProjection.totalCA,
-        sasRetained: sasProjection.totalRetained,
-        sasDividendTheoretical: sasProjection.totalDividendNet,
+        // Aucune donnée de société n'entre dans le calcul du budget du foyer.
         additionalExpensesTotal: additionalExpensesTotal
       };
 
@@ -1029,14 +1049,7 @@
         auditWarnings.push('Aides accordées saisies : vérifier leur période de validité, les ressources et l’absence de changement de droits.');
       if (mobiliDemande > mobiliJeune && !isPostMaster)
         auditWarnings.push('MOBILI-JEUNE : montant plafonné au reste du loyer après aide logement, et à 100 €.');
-      if (sasProjection.companies.length) {
-        auditWarnings.push('SAS/SASU : les cotisations salariales et les frais de paie restent approximatifs. Valider via l’Urssaf et le comptable.');
-        const unknownCFE = sasProjection.companies.some(function(company) {
-          return company.createdYear < 2026 && company.cfeAnnual > 0 &&
-            company.cfeReason.indexOf('Provision') >= 0;
-        });
-        if (unknownCFE) auditWarnings.push('CFE : budget de référence non officiel ; utiliser l’avis fiscal ou le taux local pour fiabiliser.');
-      }
+      // Les alertes des entreprises ne doivent jamais apparaître dans les aides personnelles.
       if (resteAVivre < 0)
         auditWarnings.push('Déficit à financer : les dépenses simulées dépassent les revenus encaissables.');
       if (!auditWarnings.length)
@@ -1095,7 +1108,7 @@
       // 5. RENDU DU DIAGRAMME SANKEY      // ==========================================
       // 5. RENDU DU DIAGRAMME SANKEY (PLOTLY)
       // ==========================================
-      renderCustomSummary(sasProjection, additionalExpensesTotal);
+      document.getElementById('custom-expenses-total').textContent=euro(additionalExpensesTotal);
       scheduleScenarioAutosave();
       renderSankeyChart();
     }
@@ -1139,7 +1152,6 @@
         `Moto (${c.moto}€)`,
         `Abonnements (${c.abosToi}€)`,
         `Reste à Vivre (${Math.max(0, c.resteAVivre)}€)`,
-        `Salaires nets SAS (${euro(c.sasSalaryNet || 0)})`,
         `Dépenses personnalisées (${euro(c.additionalExpensesTotal || 0)})`,
         `Frais micro réels (${euro(c.microFrais || 0)})`,
         `Déficit à financer (${euro(Math.max(0,-c.resteAVivre))})`
@@ -1162,8 +1174,7 @@
         '#64748b', // Moto (Slate)
         '#94a3b8', // Abonnements (Slate light)
         '#10b981', // Reste à Vivre (Emerald)
-        '#059669', // Salaires SAS
-        '#e11d48', // Dépenses ajoutées
+        '#e11d48', // Dépenses personnelles ajoutées
         '#a855f7', // Frais professionnels micro
         '#dc2626' // Besoin de financement
       ];
@@ -1198,7 +1209,7 @@
         addLink(8,7,microTaxes-c.caBrut,'rgba(239,68,68,0.45)');
       }
       if ((c.microFrais||0)>0) {
-        addLink(8,18,c.microFrais,'rgba(168,85,247,0.4)');
+        addLink(8,17,c.microFrais,'rgba(168,85,247,0.4)');
       }
 
       if (c.missionsToi > 0) {
@@ -1229,13 +1240,12 @@
       addLink(8, 13, c.moto, 'rgba(100, 116, 139, 0.4)');
       addLink(8, 14, c.abosToi, 'rgba(148, 163, 184, 0.4)');
 
-      // Flux supplémentaires dans le budget personnel.
-      if (c.sasSalaryNet > 0) addLink(16, 8, c.sasSalaryNet, 'rgba(16, 185, 129, 0.5)');
-      if (c.additionalExpensesTotal > 0) addLink(8, 17, c.additionalExpensesTotal, 'rgba(225, 29, 72, 0.4)');
+      // Flux supplémentaires propres au budget personnel uniquement.
+      if (c.additionalExpensesTotal > 0) addLink(8, 16, c.additionalExpensesTotal, 'rgba(225, 29, 72, 0.4)');
 
       // Le déficit n'est pas une rentrée d'argent : il représente un besoin
       // de financement à combler (épargne antérieure, emprunt, dépenses à réduire).
-      if (c.resteAVivre < 0) addLink(19,8,-c.resteAVivre,'rgba(220,38,38,0.65)');
+      if (c.resteAVivre < 0) addLink(18,8,-c.resteAVivre,'rgba(220,38,38,0.65)');
       // Flux vers le Reste à Vivre
       if (c.resteAVivre > 0) {
         addLink(8, 15, c.resteAVivre, 'rgba(16, 185, 129, 0.6)');
@@ -1906,13 +1916,15 @@
       customBudget.companies.push(company);
       saveCustomBudget();
       renderCustomForms();
-      updateSimulation();
+      refreshSasuSimulation();
+      scheduleSasScenarioAutosave();
     }
     function removeSasCompany(id) {
       customBudget.companies = customBudget.companies.filter(function(x) {return x.id !== id;});
       saveCustomBudget();
       renderCustomForms();
-      updateSimulation();
+      refreshSasuSimulation();
+      scheduleSasScenarioAutosave();
     }
     function numberField(label, field, value, step, help) {
       return '<label class="space-y-1 block text-xs font-semibold text-slate-700">' +
@@ -2073,6 +2085,10 @@
           '<p class="text-[11px] text-slate-500">La rémunération et les impôts sont recalculés automatiquement. Les taux sociaux précis, la CFE locale et certains régimes fiscaux nécessitent des justificatifs.</p>' +
           '</article>';
       }).join('') : '<p class="text-xs text-slate-500 italic py-2">Aucune société. Ajoute une SAS/SASU pour simuler les coûts selon sa situation.</p>';
+    }
+    function refreshSasuSimulation() {
+      const projection=calculateSasProjection();
+      renderCustomSummary(projection,getAdditionalExpensesTotal());
     }
     function renderCustomSummary(sasProjection, additionalExpensesTotal) {
       const expenseAmount = document.getElementById('custom-expenses-total');
@@ -2251,16 +2267,21 @@
       }
       else item[field] = safeAmount(event.target.value);
       saveCustomBudget();
-      updateSimulation();
+      if(kind==='companies'){
+        refreshSasuSimulation();
+        scheduleSasScenarioAutosave();
+      }else{
+        updateSimulation();
+      }
     }
 
-    function clearCustomModules() {
-      if (!window.confirm('Supprimer toutes tes dépenses personnalisées et tes simulations de SAS enregistrées dans ce navigateur ?')) return;
-      customBudget.expenses = [];
+    function clearSasCompanies() {
+      if (!window.confirm('Effacer toutes les sociétés de la simulation SASU active ? Les autres scénarios SASU et le budget personnel restent conservés.')) return;
       customBudget.companies = [];
       saveCustomBudget();
       renderCustomForms();
-      updateSimulation();
+      refreshSasuSimulation();
+      saveActiveSasSimulation(true);
     }
     function exportCustomCSV() {
       const rows = [['Type','Nom','Champ','Valeur','Unité','Fiabilité / remarque']];
@@ -2723,7 +2744,6 @@ Foyer : ${c.isCouple ? 'En Couple' : 'Seul'}
 RECETTES NETTES : ${c.totalRecettesNet} € / mois
 - Salaire Alternance : ${c.salaireToi} €
 - Micro-entreprise (solde après URSSAF, IR provisionné et frais pro) : ${euro(c.netPocheMicro)} (sur ${euro(c.caBrut)} brut, frais pro ${euro(c.microFrais||0)})
-- Salaires nets SAS / SASU : ${euro(c.sasSalaryNet || 0)} (après PAS simulé)
 - Armée & Pompiers : ${c.missionsToi} € (Exonéré)
 - Prime d'Activité : ${c.primeActivite} € (${c.aidesSource})
 - APL Logement : ${c.aplCalculee} €
@@ -2741,10 +2761,8 @@ TOTAL DÉPENSES : ${c.totalDepenses} € / mois
 ------------------------------------
 RESTE À VIVRE (ÉPARGNE LIBRE) : ${euro(c.resteAVivre)} / mois
 ------------------------------------
-CA total de mes SAS : ${euro(c.sasTotalCA || 0)} / mois (pas un revenu personnel)
-Solde estimé conservé en SAS : ${euro(c.sasRetained || 0)} / mois
-Dividendes nets théoriques : ${euro(c.sasDividendTheoretical || 0)} / mois équivalent (exclus du budget)
-NB : aides sociales = ${c.aidesSource} ; hypothèses éventuelles : ${euro(c.totalAidesHypothese || 0)} / mois NON garanties. Charges SAS, IS, IR au barème, TVA et revenus sociaux à confirmer.
+Simulations des SASU : calculées et sauvegardées à part, non intégrées à ce bilan personnel.
+NB : aides sociales = ${c.aidesSource} ; hypothèses éventuelles : ${euro(c.totalAidesHypothese || 0)} / mois NON garanties. IR au barème et revenus sociaux personnels à confirmer.
 ====================================`;
 
       const dummy = document.createElement('textarea');
