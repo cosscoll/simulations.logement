@@ -2035,6 +2035,24 @@
         '<div class="p-3 bg-sky-50 border border-sky-200 rounded-xl"><span class="text-xs text-sky-800 block">Résultat conservé dans les SAS / mois</span><strong class="text-lg font-mono text-sky-800">' + euro(sasProjection.totalRetained) + '</strong></div>' +
         '<div class="p-3 bg-amber-50 border border-amber-200 rounded-xl"><span class="text-xs text-amber-800 block">Dividendes nets éventuels / mois*</span><strong class="text-lg font-mono text-amber-800">' + euro(sasProjection.totalDividendNet) + '</strong></div></div>' +
         '<p class="text-[11px] text-slate-500 mt-2">*Équivalent mensuel d’une hypothèse de distribution annuelle soumise au PFU de 31,4 % en 2026 : non garanti, non ajouté aux recettes du foyer ni à la prime CAF. Le chiffre d’affaires n’est jamais un revenu personnel.</p>';
+      const plannedSasus=sasProjection.companies.filter(function(c){return c.businessBudget.enabled;});
+      if(plannedSasus.length){
+        const paidAnnual=plannedSasus.reduce(function(t,c){
+          return t+c.recurringServicesAnnual+c.services.annualFiling+c.formationCashCost+
+            c.yearlyNonRecoverableVAT;
+        },0);
+        const reserveAnnual=plannedSasus.reduce(function(t,c){
+          return t+c.businessReserveAnnual+c.nextFilingReserveAnnual;
+        },0);
+        summary.innerHTML += '<div class="rounded-xl border border-indigo-200 bg-indigo-50 p-3 mt-3 space-y-2">' +
+          '<div class="flex flex-wrap items-center justify-between gap-2"><h3 class="text-sm font-bold text-indigo-900">Budget annuel pour maintenir les '+plannedSasus.length+' SASU numériques</h3>' +
+          '<span class="text-[10px] text-indigo-800">Scénario de 12 mois, sans rémunération incluse</span></div>' +
+          '<div class="grid grid-cols-1 sm:grid-cols-3 gap-2">' +
+          '<div class="rounded-lg bg-white p-2"><span class="block text-[11px] text-slate-600">Fonctionnement + frais première année*</span><strong class="font-mono text-lg">'+euro(paidAnnual)+'</strong></div>' +
+          '<div class="rounded-lg bg-white p-2"><span class="block text-[11px] text-slate-600">Réserves de pérennisation**</span><strong class="font-mono text-lg">'+euro(reserveAnnual)+'</strong></div>' +
+          '<div class="rounded-lg bg-indigo-100 p-2"><span class="block text-[11px] text-indigo-900">Enveloppe de financement à anticiper</span><strong class="font-mono text-lg">'+euro(paidAnnual+reserveAnnual)+'</strong></div></div>' +
+          '<p class="text-[11px] text-indigo-950">*Banque, assurance, comptable, technologies, frais de paiement, TVA non récupérable, conformité, création et comptes payés en 2026. **Maintenance future, incidents, CFE suivante et dépôt futur : réserves NON déductibles avant dépense. Cette enveloppe EXCLUT salaires, impôts variables (IS, CFE de 2026, etc.), charges professionnelles déjà saisies et éventuels investissements.</p></div>';
+      }
       sasProjection.companies.forEach(function(c){
         const node=document.getElementById('sas-live-'+c.id);
         if(!node)return;
@@ -2060,7 +2078,23 @@
           (c.nextFilingReserveAnnual>0?'<p class="text-[11px] text-amber-900 mt-1">À réserver pour le PREMIER dépôt des comptes ultérieur : '+euro(c.nextFilingReserveAnnual)+' (non déduit de l’IS 2026, car échéance future).</p>':'') +
           '<p class="text-[11px] text-slate-600">Après hypothèse de dividendes et mise en réserve du dépôt futur : budget disponible de '+euro(c.cashAvailableAnnual)+'/an (hors trésorerie initiale). La réserve future est distincte du résultat fiscal.</p>' +
           '</div>' +
-          '<p class="text-xs font-semibold text-slate-700 mt-2">Résultat conservé après dividendes éventuels : '+euro(c.retainedMonth)+'/mois, avant réserve pour dépôt futur.</p>';
+          (c.businessBudget.enabled ?
+            '<div class="rounded-xl bg-indigo-50 border border-indigo-200 p-3 mt-3">' +
+            '<h4 class="font-bold text-sm text-indigo-950">Maintien numérique : coûts annuels estimés</h4>' +
+            c.businessBudget.breakdown.map(function(item){
+              return infoRow(item.label,-item.annual,'Budget annuel HT, réalisé seulement si la prestation est commandée');
+            }).join('') +
+            infoRow('Total technique et commercial (hors prestataires société)',-c.businessBudget.annualExpenses,'Déduit du résultat et de l’IS 2026 selon la simulation') +
+            infoRow('Réserve de maintenance et incidents',c.businessBudget.maintenanceReserveAnnual,'Trésorerie réservée, NON déduite du résultat imposable') +
+            infoRow('Marge de sécurité',c.businessBudget.contingencyAnnual,'Trésorerie réservée, NON une dépense fiscale') +
+            infoRow('Réserve CFE prochaine année',c.businessBudget.nextCfeReserveAnnual,'Budget 2027 indicatif, pas CFE réelle 2026') +
+            infoRow('Réserve de dépôt futur',c.nextFilingReserveAnnual,'À mettre de côté après création, sans double déduction') +
+            '<p class="text-xs font-semibold text-indigo-950 mt-2">Budget annuel à réserver (tous postes hors rémunération/IS inclus) : '+
+            euro(c.recurringServicesAnnual+c.services.annualFiling+c.formationCashCost+
+              c.yearlyNonRecoverableVAT+c.businessReserveAnnual+c.nextFilingReserveAnnual)+'</p>' +
+            '<p class="text-[11px] text-indigo-900 mt-1">Les frais de paiement sont calculés sur le CA soumis à carte et le panier moyen. Pour UCP, le CA est la commission ou l’abonnement facturé par la société, non la valeur des chantiers. TVA et avis fiscaux réels à contrôler.</p>' +
+            '</div>' : '') +
+          '<p class="text-xs font-semibold text-slate-700 mt-2">Résultat conservé après dividendes éventuels : '+euro(c.retainedMonth)+'/mois, avant les réserves futures.</p>';
       });
       projections.innerHTML = sasProjection.companies.map(function(c) {
         const warnings = c.warnings.map(function(w) {return '<li>' + safeMarkup(w) + '</li>';}).join('');
@@ -2221,6 +2255,18 @@
         add('Contribution supplémentaire IS',c.socialISAnnual,'€/an','3,3 % sous conditions de seuil IS');
         add('TVA nette annuelle',c.vat.vatYear,'€/an','Mois soumis calculés sur CA moyen constant');
         add('Frais gestion société',c.services.monthlyTotal,'€/mois',c.expensesAuto?'Selon banque, comptabilité, activité, véhicule et lieu':'Coûts manuels et assurances conditionnelles');
+        if(c.businessBudget.enabled) {
+          c.businessBudget.breakdown.forEach(function(line){
+            add('Pérennisation : '+line.label,line.annual,'€/an','Dépense annuelle estimée et comptée dans la projection');
+          });
+          add('Réserve maintenance',c.businessBudget.maintenanceReserveAnnual,'€/an','Réserve de trésorerie, non déductible');
+          add('Réserve imprévus',c.businessBudget.contingencyAnnual,'€/an','Réserve de trésorerie, non déductible');
+          add('Réserve future CFE',c.businessBudget.nextCfeReserveAnnual,'€/an','Hors fiscalité 2026');
+          add('Réserve premier dépôt comptes',c.nextFilingReserveAnnual,'€/an','Hors résultat fiscal 2026');
+          add('Budget soutenabilité annuel',c.recurringServicesAnnual+c.services.annualFiling+
+            c.formationCashCost+c.yearlyNonRecoverableVAT+c.businessReserveAnnual+
+            c.nextFilingReserveAnnual,'€/an','Hors salaire, CFE/IS 2026 et dépenses générales');
+        }
         add('Bénéfice après IS',c.afterTax,'€/mois','Simulation');
         add('Réserve légale',c.reserveAnnual,'€/an','Selon capital renseigné');
         add('Dividendes nets hypothétiques',c.dividendNetMonth,'€/mois équivalent','Jamais automatiquement versés au foyer');
