@@ -289,15 +289,68 @@
     </div>
 
 
-    <section class="bg-white rounded-2xl border-2 border-amber-200 p-4 sm:p-5 space-y-3" aria-labelledby="confirmed-aides-title">
-      <div><h2 id="confirmed-aides-title" class="text-base font-bold text-slate-900">Aides sociales : seulement les montants confirmés</h2>
-      <p class="text-xs text-slate-600 mt-1">Indique les montants accordés par la CAF ou Action Logement. Un montant inconnu est exclu du budget ; 0 € ici ne signifie pas que tu n'as pas droit à l'aide.</p></div>
-      <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <label class="text-xs font-semibold text-slate-700">Prime d'activité accordée (€/mois)<input type="number" id="input-prime-verifiee" min="0" step="1" value="0" oninput="updateSimulation()" class="block w-full mt-1.5 p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-mono text-sm"/></label>
-        <label class="text-xs font-semibold text-slate-700">Aide au logement accordée (€/mois)<input type="number" id="input-apl-verifiee" min="0" step="1" value="0" oninput="updateSimulation()" class="block w-full mt-1.5 p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-mono text-sm"/></label>
-        <label class="text-xs font-semibold text-slate-700">MOBILI-JEUNE® accordée (€/mois)<input type="number" id="input-mobili-verifiee" min="0" max="100" step="1" value="0" oninput="updateSimulation()" class="block w-full mt-1.5 p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-mono text-sm"/></label>
+    <section class="bg-white rounded-2xl border border-indigo-200 p-4 sm:p-5 shadow-sm space-y-4" aria-labelledby="aides-title">
+      <div class="flex flex-wrap justify-between gap-2 items-start">
+        <div>
+          <h2 id="aides-title" class="text-base font-bold text-slate-900">Aides ajoutées aux recettes</h2>
+          <p class="text-xs text-slate-600 mt-1">Choisis une projection avec aides, les montants réellement accordés, ou un budget sans aide. Les aides sont intégrées au total des recettes et au reste à vivre selon ce choix.</p>
+        </div>
+        <a class="underline text-xs font-semibold text-indigo-700" href="https://www.caf.fr/allocataires/mes-services-en-ligne/faire-une-simulation" rel="noopener noreferrer" target="_blank">Vérifier avec la CAF</a>
       </div>
-      <p class="text-[11px] text-amber-950 bg-amber-50 rounded-lg p-2">Les droits changent avec les revenus et les périodes de référence : prime d'activité trimestrielle, aide au logement sur 12 mois, MOBILI-JEUNE jusqu'à 100 €/mois sur les mois couverts. <a href="https://www.caf.fr/allocataires/mes-services-en-ligne/faire-une-simulation" target="_blank" rel="noopener noreferrer" class="underline">Simulateur officiel CAF</a> · <a href="https://www.actionlogement.fr/aide-mobili-jeune" target="_blank" rel="noopener noreferrer" class="underline">Action Logement</a></p>
+      <label class="block text-xs font-semibold text-slate-800">
+        Méthode de calcul des aides
+        <select id="sel-aides-mode" onchange="updateSimulation()" class="block w-full mt-1.5 bg-indigo-50 border border-indigo-200 rounded-xl p-2.5 text-sm font-semibold">
+          <option value="projection" selected>Projection : intégrer les aides estimées au budget</option>
+          <option value="confirmed">Aides accordées : utiliser les montants réels</option>
+          <option value="none">Sans aide : ne rien ajouter aux recettes</option>
+        </select>
+      </label>
+      <div id="aides-projection-fields" class="rounded-xl border border-amber-200 bg-amber-50 p-3 space-y-3">
+        <div>
+          <h3 class="font-bold text-xs text-amber-950">Hypothèses de projection (non garanties)</h3>
+          <p class="text-[11px] text-amber-900 mt-1">La prime est calculée par une formule simplifiée. L'APL ne peut pas être déterminée sans les ressources des 12 derniers mois et les caractéristiques du logement : <strong>180 € est seulement un exemple de budget modifiable</strong>. MOBILI-JEUNE suppose que tu respectes ses conditions et que le mois est couvert par ton accord.</p>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <label class="text-xs font-semibold text-slate-700">Prime d'activité estimée (€ / mois)
+            <input id="input-prime-estimee" type="number" min="0" step="1" placeholder="Automatique selon revenus" value="" oninput="updateSimulation()" class="block w-full mt-1.5 p-2.5 bg-white border border-amber-200 rounded-xl font-mono text-sm"/>
+            <span class="block text-[11px] text-amber-950 font-normal mt-1">Vide = calcul automatique indicatif ; saisis une valeur pour ajuster manuellement.</span>
+          </label>
+          <label class="text-xs font-semibold text-slate-700">APL/ALS hypothétique (€ / mois)
+            <input id="input-apl-estimee" type="number" min="0" step="1" value="180" oninput="updateSimulation()" class="block w-full mt-1.5 p-2.5 bg-white border border-amber-200 rounded-xl font-mono text-sm"/>
+            <span class="block text-[11px] text-amber-950 font-normal mt-1">180 € = scénario par défaut, pas un droit calculé. Remplace-le par ta simulation CAF.</span>
+          </label>
+          <label class="text-xs font-semibold text-slate-700">MOBILI-JEUNE envisagée (€ / mois)
+            <input id="input-mobili-estimee" type="number" min="0" max="100" step="1" value="100" oninput="updateSimulation()" class="block w-full mt-1.5 p-2.5 bg-white border border-amber-200 rounded-xl font-mono text-sm"/>
+            <span class="block text-[11px] text-amber-950 font-normal mt-1">Seulement si éligible et pendant les mois couverts ; limitée au loyer restant après aide logement.</span>
+          </label>
+        </div>
+      </div>
+      <div id="aides-confirmed-fields" class="hidden rounded-xl border border-emerald-200 bg-emerald-50 p-3 space-y-3">
+        <h3 class="font-bold text-xs text-emerald-950">Montants effectivement accordés</h3>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <label class="text-xs font-semibold text-slate-700">Prime d'activité accordée (€ / mois)
+            <input type="number" id="input-prime-verifiee" min="0" step="1" value="0" oninput="updateSimulation()" class="block w-full mt-1.5 p-2.5 bg-white border border-emerald-200 rounded-xl font-mono text-sm"/>
+          </label>
+          <label class="text-xs font-semibold text-slate-700">Aide au logement accordée (€ / mois)
+            <input type="number" id="input-apl-verifiee" min="0" step="1" value="0" oninput="updateSimulation()" class="block w-full mt-1.5 p-2.5 bg-white border border-emerald-200 rounded-xl font-mono text-sm"/>
+          </label>
+          <label class="text-xs font-semibold text-slate-700">MOBILI-JEUNE accordée (€ / mois)
+            <input type="number" id="input-mobili-verifiee" min="0" max="100" step="1" value="0" oninput="updateSimulation()" class="block w-full mt-1.5 p-2.5 bg-white border border-emerald-200 rounded-xl font-mono text-sm"/>
+          </label>
+        </div>
+      </div>
+      <div class="flex flex-wrap justify-between items-center gap-2 rounded-xl bg-slate-50 border border-slate-200 p-3">
+        <div>
+          <div class="text-xs text-slate-600 font-semibold">Aides incluses dans les recettes mensuelles</div>
+          <div id="aides-recap-status" class="text-[11px] text-slate-500 mt-1">Projection non garantie</div>
+        </div>
+        <strong id="aides-recap-total" class="text-xl font-mono text-indigo-800">—</strong>
+      </div>
+      <p class="text-[11px] text-slate-600">La CAF calcule la prime d'activité par trimestre à partir du montant net social et de toutes les ressources du foyer ; le logement dépend notamment des revenus sur 12 mois. MOBILI-JEUNE est plafonnée à 100 €/mois, jusqu'à 11 mensualités par année de formation, et peut être versée après dépôt de justificatifs. Un montant projeté <strong>n'est pas une aide accordée</strong>.</p>
+      <div class="flex flex-wrap gap-x-3 gap-y-1 text-[11px]">
+        <a href="https://www.service-public.gouv.fr/particuliers/vosdroits/R2972" target="_blank" rel="noopener noreferrer" class="underline text-indigo-700">Estimer l'aide logement auprès de la CAF</a>
+        <a href="https://www.actionlogement.fr/l-aide-mobili-jeune" target="_blank" rel="noopener noreferrer" class="underline text-indigo-700">Conditions MOBILI-JEUNE</a>
+      </div>
     </section>
     <section class="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 space-y-3" aria-labelledby="micro-charges-title">
       <h2 id="micro-charges-title" class="text-sm font-bold text-slate-900">Micro-entreprise : frais réels et fiscalité</h2>
@@ -849,19 +902,33 @@
       const fractionRevenus = 0.5985 * revFoyerCAF;
       const primeBrute = montantForfaitaire + fractionRevenus + bonifToi + bonifCopine - revFoyerCAF - forfaitLogement;
       const primeEstimate = isEligiblePrime && primeBrute >= 15 ? Math.round(primeBrute) : 0;
-      // Les aides *confirmées* seulement sont comptabilisées.
-      const primeActivite = safeAmount(document.getElementById('input-prime-verifiee').value);
-      const aplCalculee = safeAmount(document.getElementById('input-apl-verifiee').value);
-      const mobiliDemande = safeAmount(document.getElementById('input-mobili-verifiee').value);
-      const mobiliJeune = isPostMaster ? 0 : Math.min(100,mobiliDemande,Math.max(0,loyer-aplCalculee));
+      // Trois modes de recettes : projection explicite / droits accordés / sans aides.
+      // La prime calculée ici n'est pas un droit CAF : la base trimestrielle est inconnue.
+      // L'APL en projection est uniquement une hypothèse saisie par l'utilisateur.
+      const aidesMode = document.getElementById('sel-aides-mode').value;
+      const aideProjection = aidesMode === 'projection';
+      const aideConfirmee = aidesMode === 'confirmed';
+      document.getElementById('aides-projection-fields').classList.toggle('hidden',!aideProjection);
+      document.getElementById('aides-confirmed-fields').classList.toggle('hidden',!aideConfirmee);
+      const primeProjectionSaisie=document.getElementById('input-prime-estimee').value;
+      const primeProjection=primeProjectionSaisie==='' ? primeEstimate : safeAmount(primeProjectionSaisie);
+      const primeActivite=aideProjection ? primeProjection :
+        aideConfirmee ? safeAmount(document.getElementById('input-prime-verifiee').value) : 0;
+      const aplCalculee=aideProjection ? safeAmount(document.getElementById('input-apl-estimee').value) :
+        aideConfirmee ? safeAmount(document.getElementById('input-apl-verifiee').value) : 0;
+      const mobiliDemande=aideProjection ? safeAmount(document.getElementById('input-mobili-estimee').value) :
+        aideConfirmee ? safeAmount(document.getElementById('input-mobili-verifiee').value) : 0;
+      const resteDeLoyer=Math.max(0,loyer-aplCalculee);
+      const mobiliPotentielle=Math.min(100,mobiliDemande,resteDeLoyer);
+      const mobiliJeune=isPostMaster || mobiliPotentielle<10 ? 0 : mobiliPotentielle;
+      const aidesSource=aideProjection?'Projection estimée, non acquise':
+        aideConfirmee?'Montants accordés saisis':'Aides exclues';
+      const totalAidesHypothese=aideProjection?primeActivite+aplCalculee+mobiliJeune:0;
+      document.getElementById('aides-recap-total').textContent=euro(primeActivite+aplCalculee+mobiliJeune);
+      document.getElementById('aides-recap-status').textContent=aidesSource;
 
       // ==========================================
-      // 3. APL : impossible à déterminer sans ressources N-12 et données logement.
-      // Montant issu de la décision CAF à saisir ci-dessus. Pas de formule fictive.
-      // ==========================================
-      
-      // ==========================================
-      // 4. SYNTHÈSE TOTALE DES BUDGETS// 4. SYNTHÈSE TOTALE DES BUDGETS
+      // 4. SYNTHÈSE TOTALE DES BUDGETS
       // ==========================================
       const totalAides = primeActivite + aplCalculee + mobiliJeune;
       const totalRecettesNet = salaireToi + netPocheMicro + missionsToi + (isCouple ? revenuCopine : 0) + sasProjection.totalSalaryNet + totalAides;
@@ -875,7 +942,8 @@
       currentCalc = {
         totalRecettesNet, totalAides, totalDepenses, resteAVivre,
         salaireToi, caBrut, cotisationsURSSAF, impotMensuel, netPocheMicro, microFrais, provisionIRBar, primeEstimate,
-        missionsToi, revenuCopine, primeActivite, aplCalculee, mobiliJeune,
+        missionsToi, revenuCopine, primeActivite, aplCalculee, mobiliJeune, aidesMode, aidesSource,
+        totalAidesHypothese,
         loyer, coursesToi, facturesToi, sortiesToi, moto, abosToi,
         coursesCopine, facturesCopine, sortiesCopine, isCouple, isPostMaster,
         tauxURSSAF, bonifToi, bonifCopine, revProToi,
@@ -897,8 +965,10 @@
         auditWarnings.push('IR au barème : aucune provision saisie ; le montant personnel peut être surestimé.');
       if (caBrut > 0 && microFrais === 0)
         auditWarnings.push('Micro-entreprise : aucun frais professionnel déclaré ; confirmer qu’il n’existe pas de dépenses d’activité.');
-      if (primeActivite > 0 || aplCalculee > 0 || mobiliJeune > 0)
-        auditWarnings.push('Aides : montants saisis, pas de droits recalculés ; vérifier les échéances et changements de ressources.');
+      if (aideProjection && totalAides>0)
+        auditWarnings.push('Recettes : '+euro(totalAides)+' d’aides HYPOTHÉTIQUES incluses au budget, non garanties. Prime simplifiée, APL estimée manuellement et MOBILI-JEUNE soumise à accord.');
+      if (aideConfirmee && totalAides>0)
+        auditWarnings.push('Aides accordées saisies : vérifier leur période de validité, les ressources et l’absence de changement de droits.');
       if (mobiliDemande > mobiliJeune && !isPostMaster)
         auditWarnings.push('MOBILI-JEUNE : montant plafonné au reste du loyer après aide logement, et à 100 €.');
       if (sasProjection.companies.length) {
@@ -912,18 +982,24 @@
       if (resteAVivre < 0)
         auditWarnings.push('Déficit à financer : les dépenses simulées dépassent les revenus encaissables.');
       if (!auditWarnings.length)
-        auditWarnings.push('Le budget additionne des valeurs saisies. Les droits CAF et les impôts réels ne sont pas calculés automatiquement.');
+        auditWarnings.push('Aucun montant garanti n’est calculé automatiquement par la CAF ; vérifier les droits réels.');
       const alertsNode=document.getElementById('finance-alerts');
       alertsNode.innerHTML=auditWarnings.map(function(message){return '<li>'+safeMarkup(message)+'</li>';}).join('');
       // Mise à jour de l'affichage des KPIs
       document.getElementById('kpi-recettes').textContent = euro(totalRecettesNet);
+      document.getElementById('kpi-recettes-sub').textContent = aideProjection && totalAides>0
+        ? 'Dont '+euro(totalAides)+' d’aides estimées (non garanties)'
+        : aideConfirmee ? 'Aides accordées saisies incluses'
+        : 'Hors aides sociales';
       document.getElementById('kpi-recettes-sub').textContent = sasProjection.companies.length ? 'Salaire + micro + SAS (après PAS) + missions + aides estimées' : 'Salaire + micro + missions + aides estimées';
       document.getElementById('kpi-aides').textContent = euro(totalAides);
-      document.getElementById('kpi-aides-sub').textContent = `Prime : ${primeActivite}€ | APL : ${aplCalculee}€ | Mobili : ${mobiliJeune}€`;
+      document.getElementById('kpi-aides-sub').textContent = aidesSource+' · Prime '+euro(primeActivite)+' · Logement '+euro(aplCalculee)+' · Mobili '+euro(mobiliJeune);
       document.getElementById('kpi-depenses').textContent = euro(totalDepenses);
       document.getElementById('kpi-depenses-sub').textContent = 'Loyer + vie courante + dépenses personnelles (frais micro inclus dans recettes nettes)';
       document.getElementById('kpi-reste').textContent = euro(resteAVivre);
-      document.getElementById('kpi-reste-sub').textContent = resteAVivre < 0 ? 'Déficit mensuel : dépenses supérieures aux ressources' : 'Solde mensuel restant (simulation)';
+      document.getElementById('kpi-reste-sub').textContent = aideProjection && totalAides>0
+        ? 'Comprend '+euro(totalAides)+' d’aides HYPOTHÉTIQUES'
+        : resteAVivre<0 ? 'Déficit mensuel : dépenses supérieures aux ressources' : 'Solde mensuel restant (simulation)';
 
       // Couleur conditionnelle du reste à vivre
       const kpiResteEl = document.getElementById('kpi-reste');
@@ -944,16 +1020,16 @@
         : 'IR au barème : provision saisie '+euro(impotMensuel)+' / mois. Zéro par défaut n’implique pas une absence d’impôt. Vérifier le foyer fiscal.';
       document.getElementById('detail-caf-retenu').textContent = euro(revenuNetCAF_Micro)+' (hypothèse fiscale)';
       const primeStatusBadge = document.getElementById('detail-prime-status');
-      primeStatusBadge.textContent = 'Non certifié CAF';
+      primeStatusBadge.textContent = aideProjection ? 'Estimation non garantie' : aideConfirmee ? 'Montant déclaré' : 'Non inclus';
       primeStatusBadge.className = 'font-mono text-[11px] bg-amber-500/20 text-amber-200 px-1.5 rounded';
-      document.getElementById('detail-prime-val').textContent = euro(primeActivite) + ' / mois (saisi)';
+      document.getElementById('detail-prime-val').textContent = euro(primeActivite) + ' / mois (' + (aideProjection?'projection':aideConfirmee?'saisi':'exclu') + ')';
       document.getElementById('detail-prime-formule').textContent =
-        'Illustration théorique '+euro(primeEstimate)+' / mois (NON incluse) : forfait '+euro(montantForfaitaire)+
-        ' + 59,85 % revenus d’activité + bonification '+euro(bonifToi+bonifCopine)+
+        'Projection simplifiée de prime '+euro(primeEstimate)+' (non garantie) : forfait '+euro(montantForfaitaire)+
+        ' + 59,85 % de revenus d’activité + bonification '+euro(bonifToi+bonifCopine)+
         ' - ressources - forfait logement '+euro(forfaitLogement)+
-        '. Ne remplace pas le trimestre CAF, le montant net social ni les autres revenus.';
-      document.getElementById('detail-apl-calc').textContent = 'APL/ALS/ALF comptabilisée : '+euro(aplCalculee)+
-        ' / mois (montant CAF saisi). Aucun calcul de droit automatique : 12 derniers mois et données du logement requis.';
+        '. Le montant comptabilisé dépend du mode choisi ; seule la CAF peut établir le droit trimestriel.';
+      document.getElementById('detail-apl-calc').textContent = 'Aide logement comptabilisée : '+euro(aplCalculee)+
+        ' / mois ('+(aideProjection?'HYPOTHÈSE ajustable, non droit CAF':aideConfirmee?'montant réellement accordé saisi':'aucune aide')+'). Calcul CAF exact impossible sans historique des 12 mois et détails du logement.';
       document.getElementById('detail-mobili-val').textContent = euro(mobiliJeune);
       document.getElementById('badge-mobili-montant').textContent = euro(mobiliJeune)+' / mois si accordée';
 
@@ -2013,6 +2089,7 @@
       'input-courses-toi','input-factures-toi','input-sorties-toi','input-moto','input-abos-toi',
       'input-revenu-copine','input-courses-copine','input-factures-copine','input-sorties-copine',
       'input-prime-verifiee','input-apl-verifiee','input-mobili-verifiee',
+      'sel-aides-mode','input-prime-estimee','input-apl-estimee','input-mobili-estimee',
       'input-micro-frais','input-micro-ir','sel-cfp-bic'
     ];
     const SCENARIO_DEFAULTS = {
@@ -2025,7 +2102,9 @@
       'input-revenu-copine':'0', 'input-courses-copine':'80',
       'input-factures-copine':'30', 'input-sorties-copine':'50',
       'input-prime-verifiee':'0', 'input-apl-verifiee':'0',
-      'input-mobili-verifiee':'0', 'input-micro-frais':'0',
+      'input-mobili-verifiee':'0', 'sel-aides-mode':'projection',
+      'input-prime-estimee':'', 'input-apl-estimee':'180', 'input-mobili-estimee':'100',
+      'input-micro-frais':'0',
       'input-micro-ir':'0', 'sel-cfp-bic':'commerce'
     };
     let scenarioReady = false;
@@ -2060,6 +2139,14 @@
         controls[id] = typeof input[id] === 'string' || typeof input[id] === 'number'
           ? String(input[id]).slice(0,60) : SCENARIO_DEFAULTS[id];
       });
+      // Migration : ne pas perdre une aide déjà renseignée dans les anciens scénarios.
+      if (!Object.prototype.hasOwnProperty.call(input,'sel-aides-mode')) {
+        const alreadyGranted=['input-prime-verifiee','input-apl-verifiee','input-mobili-verifiee']
+          .some(function(key){return Number(input[key])>0;});
+        controls['sel-aides-mode']=alreadyGranted?'confirmed':'projection';
+      }
+      if (!['projection','confirmed','none'].includes(controls['sel-aides-mode']))
+        controls['sel-aides-mode']='projection';
       const expenses = Array.isArray(data && data.expenses) ? data.expenses.slice(0,100).filter(function(x) {return x && typeof x === 'object' && !Array.isArray(x);}) : [];
       const companies = Array.isArray(data && data.companies) ? data.companies.slice(0,25).filter(function(x) {return x && typeof x === 'object' && !Array.isArray(x);}) : [];
       return {controls:controls, expenses:cloneSimulationData(expenses), companies:cloneSimulationData(companies).map(migrateSasDefaults2026)};
@@ -2350,7 +2437,7 @@ RECETTES NETTES : ${c.totalRecettesNet} € / mois
 - Micro-entreprise (solde après URSSAF, IR provisionné et frais pro) : ${euro(c.netPocheMicro)} (sur ${euro(c.caBrut)} brut, frais pro ${euro(c.microFrais||0)})
 - Salaires nets SAS / SASU : ${euro(c.sasSalaryNet || 0)} (après PAS simulé)
 - Armée & Pompiers : ${c.missionsToi} € (Exonéré)
-- Prime d'Activité : ${c.primeActivite} €
+- Prime d'Activité : ${c.primeActivite} € (${c.aidesSource})
 - APL Logement : ${c.aplCalculee} €
 - Mobili-Jeune : ${c.mobiliJeune} €
 ${c.isCouple ? '- Revenus Copine : ' + c.revenuCopine + ' €' : ''}
@@ -2369,7 +2456,7 @@ RESTE À VIVRE (ÉPARGNE LIBRE) : ${euro(c.resteAVivre)} / mois
 CA total de mes SAS : ${euro(c.sasTotalCA || 0)} / mois (pas un revenu personnel)
 Solde estimé conservé en SAS : ${euro(c.sasRetained || 0)} / mois
 Dividendes nets théoriques : ${euro(c.sasDividendTheoretical || 0)} / mois équivalent (exclus du budget)
-NB : aides sociales = montants saisis, NON droits calculés ; charges SAS, IS, IR au barème, TVA, revenus sociaux à confirmer.
+NB : aides sociales = ${c.aidesSource} ; hypothèses éventuelles : ${euro(c.totalAidesHypothese || 0)} / mois NON garanties. Charges SAS, IS, IR au barème, TVA et revenus sociaux à confirmer.
 ====================================`;
 
       const dummy = document.createElement('textarea');
